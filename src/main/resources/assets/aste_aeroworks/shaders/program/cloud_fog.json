@@ -1,0 +1,17 @@
+{
+  "blend": {"func": "add", "srcrgb": "one", "dstrgb": "zero"},
+  "vertex": "blit",
+  "fragment": "aste_aeroworks:cloud_fog",
+  "attributes": ["Position"],
+  "samplers": [{"name": "DiffuseSampler"}, {"name": "MainDepthSampler"}, {"name": "DhDepthSampler"}],
+  "uniforms": [
+    {"name": "ProjMat", "type": "matrix4x4", "count": 16, "values": [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]},
+    {"name": "OutSize", "type": "float", "count": 2, "values": [1,1]},
+    {"name": "InverseProjection", "type": "matrix4x4", "count": 16, "values": [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]},
+    {"name": "InverseDhProjection", "type": "matrix4x4", "count": 16, "values": [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]},
+    {"name": "HasDhDepth", "type": "int", "count": 1, "values": [0]},
+    {"name": "Visibility", "type": "float", "count": 1, "values": [24]},
+    {"name": "Strength", "type": "float", "count": 1, "values": [0]},
+    {"name": "FogColor", "type": "float", "count": 3, "values": [1,1,1]}
+  ]
+}

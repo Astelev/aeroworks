@@ -35,10 +35,5 @@ public final class CloudDensity {
         return previous + (target - previous) * (float) (1 - Math.exp(-Math.max(0, elapsedTicks) / transitionTicks));
     }
 
-    public static float fogEnd(float original, float distance, float strength) {
-        float amount = clamp(strength);
-        return original * (1 - amount) + Math.min(original, distance) * amount;
-    }
-
     private static float clamp(float v) { return Math.max(0, Math.min(1, v)); }
 }

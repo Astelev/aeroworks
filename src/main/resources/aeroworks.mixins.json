@@ -3,6 +3,6 @@
   "minVersion": "0.8",
   "package": "net.aste.aeroworks.mixin",
   "compatibilityLevel": "JAVA_21",
-  "client": ["client.SimpleCloudsFogMixin"],
+  "client": ["client.PostChainAccessor", "client.CloudFogFrameMixin", "client.CloudFogDhMixin"],
   "injectors": { "defaultRequire": 1 }
 }

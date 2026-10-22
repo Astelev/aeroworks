@@ -13,6 +13,7 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 public class ExampleModClient {
     public ExampleModClient(ModContainer container, net.neoforged.bus.api.IEventBus modEventBus) {
         modEventBus.addListener(ExampleModClient::onClientSetup);
+        modEventBus.addListener(net.aste.aeroworks.client.CloudFogPostProcess::registerReloadListener);
         container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT,
                 net.aste.aeroworks.client.CloudFogConfig.SPEC);
         // Allows NeoForge to create a config screen for this mod's configs.

@@ -12,7 +12,7 @@ public final class CloudFogTest {
         layerGaps();
         animationAndScroll();
         frameIndependentTransitions();
-        existingFog();
+        sensitivity();
         System.out.println("Cloud fog: 7 regression checks passed");
     }
 
@@ -71,11 +71,10 @@ public final class CloudFogTest {
         near(.4f, CloudDensity.smooth(.4f, 1, 0, 3), 0, "Paused time");
         near(0, CloudDensity.smooth(1, 0, 1, 0), 0, "Instant exit setting");
     }
-    private static void existingFog() {
-        near(24, CloudDensity.fogEnd(512, 24, 1), 0, "Full fog visibility");
-        near(512, CloudDensity.fogEnd(512, 24, 0), 0, "Outside cloud unchanged");
-        near(5, CloudDensity.fogEnd(5, 24, 1), 0, "Never weaken blindness or denser fog");
-        near(24, CloudDensity.fogEnd(Float.MAX_VALUE, 24, 1), 0, "Stable interpolation at large distances");
+    private static void sensitivity() {
+        near(0, CloudDensity.strength(-.05f, .1f), 0, "Default threshold keeps a clear cloud fringe");
+        near(.5f, CloudDensity.strength(-.05f + .1f, .1f), .0001f, "Density offset activates the cloud fringe");
+        require(CloudDensity.strength(.03f, .05f) > CloudDensity.strength(.03f, .15f), "Smaller boundary width responds earlier");
     }
     private static void near(float expected, float actual, float tolerance, String message) {
         require(Float.isFinite(actual) && Math.abs(expected - actual) <= tolerance, message + ": " + actual);

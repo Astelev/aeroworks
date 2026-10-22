@@ -1,0 +1,166 @@
+"""Render the actual cloud fog GLSL on a headless EGL context (Mesa/llvmpipe in CI)."""
+import ctypes as C
+import os
+from pathlib import Path
+
+os.environ.setdefault('EGL_PLATFORM', 'surfaceless')
+os.environ.setdefault('LIBGL_ALWAYS_SOFTWARE', '1')
+egl = C.CDLL('libEGL.so.1')
+gl = C.CDLL('libGL.so.1')
+
+def bind(lib, name, result, *args):
+    fn = getattr(lib, name)
+    fn.restype, fn.argtypes = result, args
+    return fn
+
+P, I, U, F = C.c_void_p, C.c_int, C.c_uint, C.c_float
+get_display = bind(egl, 'eglGetDisplay', P, P)
+initialize = bind(egl, 'eglInitialize', U, P, C.POINTER(I), C.POINTER(I))
+choose = bind(egl, 'eglChooseConfig', U, P, C.POINTER(I), C.POINTER(P), I, C.POINTER(I))
+api = bind(egl, 'eglBindAPI', U, U)
+surface = bind(egl, 'eglCreatePbufferSurface', P, P, P, C.POINTER(I))
+context = bind(egl, 'eglCreateContext', P, P, P, P, C.POINTER(I))
+current = bind(egl, 'eglMakeCurrent', U, P, P, P, P)
+display = get_display(None)
+assert initialize(display, None, None), 'EGL initialization failed'
+attrs = (I * 11)(0x3033, 1, 0x3040, 8, 0x3024, 8, 0x3023, 8, 0x3022, 8, 0x3038)
+config, count = P(), I()
+assert choose(display, attrs, C.byref(config), 1, C.byref(count)) and count.value
+assert api(0x30A2)
+pbuffer = surface(display, config, (I * 5)(0x3057, 1, 0x3056, 1, 0x3038))
+ctx = context(display, config, None, (I * 7)(0x3098, 3, 0x30FB, 2, 0x30FD, 1, 0x3038))
+assert ctx and pbuffer and current(display, pbuffer, pbuffer, ctx), 'EGL context failed'
+
+create_shader = bind(gl, 'glCreateShader', U, U)
+shader_source = bind(gl, 'glShaderSource', None, U, I, C.POINTER(C.c_char_p), P)
+compile_shader = bind(gl, 'glCompileShader', None, U)
+shader_iv = bind(gl, 'glGetShaderiv', None, U, U, C.POINTER(I))
+shader_log = bind(gl, 'glGetShaderInfoLog', None, U, I, P, P)
+create_program = bind(gl, 'glCreateProgram', U)
+attach = bind(gl, 'glAttachShader', None, U, U)
+link = bind(gl, 'glLinkProgram', None, U)
+program_iv = bind(gl, 'glGetProgramiv', None, U, U, C.POINTER(I))
+program_log = bind(gl, 'glGetProgramInfoLog', None, U, I, P, P)
+use = bind(gl, 'glUseProgram', None, U)
+location = bind(gl, 'glGetUniformLocation', I, U, C.c_char_p)
+u1i = bind(gl, 'glUniform1i', None, I, I)
+u1f = bind(gl, 'glUniform1f', None, I, F)
+u3f = bind(gl, 'glUniform3f', None, I, F, F, F)
+umat = bind(gl, 'glUniformMatrix4fv', None, I, I, U, C.POINTER(F))
+gen_tex = bind(gl, 'glGenTextures', None, I, C.POINTER(U))
+active_tex = bind(gl, 'glActiveTexture', None, U)
+bind_tex = bind(gl, 'glBindTexture', None, U, U)
+tex_image = bind(gl, 'glTexImage2D', None, U, I, I, I, I, I, U, U, P)
+tex_param = bind(gl, 'glTexParameteri', None, U, U, I)
+gen_fbo = bind(gl, 'glGenFramebuffers', None, I, C.POINTER(U))
+bind_fbo = bind(gl, 'glBindFramebuffer', None, U, U)
+fbo_tex = bind(gl, 'glFramebufferTexture2D', None, U, U, U, U, I)
+check_fbo = bind(gl, 'glCheckFramebufferStatus', U, U)
+gen_vao = bind(gl, 'glGenVertexArrays', None, I, C.POINTER(U))
+bind_vao = bind(gl, 'glBindVertexArray', None, U)
+viewport = bind(gl, 'glViewport', None, I, I, I, I)
+draw = bind(gl, 'glDrawArrays', None, U, I, I)
+read = bind(gl, 'glReadPixels', None, I, I, I, I, U, U, P)
+error = bind(gl, 'glGetError', U)
+
+def shader(kind, source):
+    result = create_shader(kind)
+    text = C.c_char_p(source.encode())
+    shader_source(result, 1, C.byref(text), None)
+    compile_shader(result)
+    ok = I()
+    shader_iv(result, 0x8B81, C.byref(ok))
+    log = C.create_string_buffer(8192)
+    shader_log(result, len(log), None, log)
+    assert ok.value, log.value.decode()
+    return result
+
+vertex = '''#version 150
+out vec2 texCoord;
+void main() {
+ vec2 points[3] = vec2[3](vec2(-1,-1), vec2(3,-1), vec2(-1,3));
+ vec2 p=points[gl_VertexID]; texCoord=p*.5+.5; gl_Position=vec4(p,0,1);
+}'''
+root = Path(__file__).resolve().parents[1]
+fragment = (root / 'src/main/resources/assets/aste_aeroworks/shaders/program/cloud_fog.fsh').read_text()
+program = create_program()
+attach(program, shader(0x8B31, vertex))
+attach(program, shader(0x8B30, fragment))
+link(program)
+ok = I()
+program_iv(program, 0x8B82, C.byref(ok))
+log = C.create_string_buffer(8192)
+program_log(program, len(log), None, log)
+assert ok.value, log.value.decode()
+use(program)
+vao = U()
+gen_vao(1, C.byref(vao))
+bind_vao(vao)
+viewport(0, 0, 1, 1)
+
+def texture(unit, values):
+    result = U()
+    gen_tex(1, C.byref(result))
+    active_tex(0x84C0 + unit)
+    bind_tex(0x0DE1, result)
+    tex_param(0x0DE1, 0x2801, 0x2600)
+    tex_param(0x0DE1, 0x2800, 0x2600)
+    data = (F * len(values))(*values)
+    tex_image(0x0DE1, 0, 0x8814 if len(values) == 4 else 0x822E, 1, 1, 0,
+              0x1908 if len(values) == 4 else 0x1903, 0x1406, data)
+    return result
+
+original = (.2, .4, .6, .8)
+fog = (.8, .85, .9)
+color_texture = texture(0, original)
+main_texture = texture(1, [1])
+dh_texture = texture(2, [1])
+out_texture = texture(3, [0, 0, 0, 0])
+fbo = U()
+gen_fbo(1, C.byref(fbo))
+bind_fbo(0x8D40, fbo)
+fbo_tex(0x8D40, 0x8CE0, 0x0DE1, out_texture, 0)
+assert check_fbo(0x8D40) == 0x8CD5
+for name, unit in [('DiffuseSampler', 0), ('MainDepthSampler', 1), ('DhDepthSampler', 2)]:
+    u1i(location(program, name.encode()), unit)
+u1f(location(program, b'Visibility'), 24)
+u3f(location(program, b'FogColor'), *fog)
+
+def inverse_projection(near, far):
+    a = (far + near) / (near - far)
+    b = 2 * far * near / (near - far)
+    return (F * 16)(1,0,0,0, 0,1,0,0, 0,0,0,1/b, 0,0,-1,a/b)
+
+umat(location(program, b'InverseProjection'), 1, 0, inverse_projection(.1, 2048))
+umat(location(program, b'InverseDhProjection'), 1, 0, inverse_projection(16, 65536))
+
+def depth(distance, near, far):
+    return 1 if distance is None else far * (distance - near) / (distance * (far - near))
+
+def upload(unit, tex, value):
+    active_tex(0x84C0 + unit)
+    bind_tex(0x0DE1, tex)
+    tex_image(0x0DE1, 0, 0x822E, 1, 1, 0, 0x1903, 0x1406, (F * 1)(value))
+
+def render(main, dh, amount, expected_alpha, label):
+    upload(1, main_texture, depth(main, .1, 2048))
+    upload(2, dh_texture, depth(dh, 16, 65536))
+    u1i(location(program, b'HasDhDepth'), int(dh is not None))
+    u1f(location(program, b'Strength'), amount)
+    draw(4, 0, 3)
+    pixels = (F * 4)()
+    read(0, 0, 1, 1, 0x1908, 0x1406, pixels)
+    expected = [a + (b - a) * expected_alpha for a, b in zip(original[:3], fog)] + [original[3]]
+    assert max(abs(a-b) for a,b in zip(pixels, expected)) < .0001, (label, list(pixels), expected)
+    assert error() == 0, label
+
+render(200, None, 1, 1, 'ordinary distant chunks')
+render(1, None, 1, 0, 'near geometry stays visible')
+render(13.2, None, 1, .5, 'depth controls fog inside visibility range')
+render(None, 200, 1, 1, 'DH-only far geometry')
+render(8, 100, 1, ((8-2.4)/21.6)**2*(3-2*(8-2.4)/21.6), 'different projection depths: near main beats raw-nearer DH')
+render(200, 20, 1, ((20-2.4)/21.6)**2*(3-2*(20-2.4)/21.6), 'DH depth selected when nearer')
+render(200, 100, 0, 0, 'no cloud leaves scene unchanged')
+render(200, 100, .1, .1, 'weak cloud opacity independent of render distance')
+render(None, None, 1, 1, 'sky fogged too')
+print('Cloud fog GLSL: 9 software OpenGL render checks passed')

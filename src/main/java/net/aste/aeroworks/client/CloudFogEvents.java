@@ -1,6 +1,5 @@
 package net.aste.aeroworks.client;
 
-import com.mojang.blaze3d.shaders.FogShape;
 import dev.nonamecrackers2.simpleclouds.api.common.cloud.CloudMode;
 import dev.nonamecrackers2.simpleclouds.client.renderer.SimpleCloudsRenderer;
 import dev.nonamecrackers2.simpleclouds.common.config.SimpleCloudsConfig;
@@ -31,7 +30,7 @@ public final class CloudFogEvents {
         return Minecraft.getInstance().level == lastLevel ? strength : 0;
     }
 
-    private static float update(Camera camera, float partialTick) {
+    static float update(Camera camera, float partialTick) {
         var level = Minecraft.getInstance().level;
         if (level == null || !CloudFogConfig.ENABLED.get() || camera.getFluidInCamera() != FogType.NONE
                 || !SimpleCloudsRenderer.canRenderInDimension(level) || !SimpleCloudsConfig.CLIENT.renderClouds.get()) {
@@ -55,7 +54,8 @@ public final class CloudFogEvents {
             float density = CloudDensity.sample(layers, (float) (pos.x / 8),
                     (float) ((pos.y - manager.getCloudHeight()) / 8), (float) (pos.z / 8),
                     manager.getScrollX(partialTick), manager.getScrollY(partialTick), manager.getScrollZ(partialTick), info.getRight());
-            target = CloudDensity.strength(density, CloudFogConfig.BOUNDARY_WIDTH.get().floatValue());
+            target = CloudDensity.strength(density + CloudFogConfig.DENSITY_OFFSET.get().floatValue(),
+                    CloudFogConfig.BOUNDARY_WIDTH.get().floatValue());
         }
         boolean reset = level != lastLevel || lastPos == null || pos.distanceToSqr(lastPos) > 128 * 128 || time < lastTime;
         strength = reset ? target : CloudDensity.smooth(strength, target, time - lastTime, CloudFogConfig.TRANSITION_TICKS.get());
@@ -76,34 +76,20 @@ public final class CloudFogEvents {
     @SubscribeEvent
     public static void logout(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
         reset();
-    }
-
-    @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)
-    public static void fog(ViewportEvent.RenderFog event) {
-        float amount = update(event.getCamera(), (float) event.getPartialTick());
-        if (amount == 0) return;
-        float end = CloudDensity.fogEnd(event.getFarPlaneDistance(), CloudFogConfig.VISIBILITY.get().floatValue(), amount);
-        event.setFarPlaneDistance(end);
-        event.setNearPlaneDistance(Math.min(event.getNearPlaneDistance() * (1 - amount), end));
-        event.setFogShape(FogShape.SPHERE);
-        event.setCanceled(true);
+        CloudFogPostProcess.close();
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void color(ViewportEvent.ComputeFogColor event) {
-        float amount = update(event.getCamera(), (float) event.getPartialTick());
-        if (amount == 0) return;
-        float[] color = SimpleCloudsRenderer.getInstance().getCloudColor((float) event.getPartialTick());
-        event.setRed(event.getRed() + (color[0] - event.getRed()) * amount);
-        event.setGreen(event.getGreen() + (color[1] - event.getGreen()) * amount);
-        event.setBlue(event.getBlue() + (color[2] - event.getBlue()) * amount);
+        update(event.getCamera(), (float) event.getPartialTick());
     }
 
-    public static float cloudFogEnd(float original) {
-        return CloudDensity.fogEnd(original, CloudFogConfig.VISIBILITY.get().floatValue(), strength());
-    }
-
-    public static float cloudFogStart(float original) {
-        return original * (1 - strength());
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void afterWorld(net.neoforged.neoforge.client.event.RenderLevelStageEvent event) {
+        if (event.getStage() == net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage.AFTER_LEVEL) {
+            float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(true);
+            update(event.getCamera(), partialTick);
+            CloudFogPostProcess.render(event.getProjectionMatrix(), partialTick);
+        }
     }
 }
