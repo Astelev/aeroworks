@@ -1,25 +1,41 @@
+# Aero Works
 
-Installation information
-=======
+Minecraft 1.21.1 / NeoForge 21.1.256. Клиентский туман внутри облаков Simple Clouds 0.7.3+1.21.1.
 
-This template repository can be directly cloned to get you started with a new
-mod. Simply create a new repository cloned from this one, by following the
-instructions provided by [GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+Туман учитывает позицию **камеры**, высоту облаков, тип и границы региона, слои шума, движение ветра и анимацию градиентов. Плотность рассчитывается на CPU по формуле `cube_mesh.comp` и MIT-алгоритму psrdnoise из приложенного JAR. Просветы и промежутки между слоями остаются прозрачными; режим AMBIENT, который убирает облака вокруг камеры, не создаёт туман. Чтения данных с GPU нет.
 
-Once you have your clone, simply open the repository in the IDE of your choice. The usual recommendation for an IDE is either IntelliJ IDEA or Eclipse.
+Туман плавно меняет видимость и цвет мира, используя текущий цвет облаков, в том числе ночью и при грозе. Он применяется к terrain/sky fog и дальности тумана самих облаков. В воде, лаве и рыхлом снегу используются штатные эффекты. Более короткая дистанция штатного тумана, например от слепоты, не увеличивается. Обработчики и миксины загружаются только на клиенте.
 
-If at any point you are missing libraries in your IDE, or you've run into problems you can
-run `gradlew --refresh-dependencies` to refresh the local cache. `gradlew clean` to reset everything 
-{this does not affect your code} and then start the process again.
+## Настройки
 
-Mapping Names:
-============
-By default, the MDK is configured to use the official mapping names from Mojang for methods and fields 
-in the Minecraft codebase. These names are covered by a specific license. All modders should be aware of this
-license. For the latest license text, refer to the mapping file itself, or the reference copy here:
-https://github.com/NeoForged/NeoForm/blob/main/Mojang.md
+После первого запуска: `config/aeroworks-client.toml`.
 
-Additional Resources: 
-==========
-Community Documentation: https://docs.neoforged.net/  
-NeoForged Discord: https://discord.neoforged.net/
+```toml
+[cloud_fog]
+enabled = true
+# Дальность полной непрозрачности в плотном облаке, в блоках.
+visibility = 24.0
+# Ширина перехода по значению плотности шума.
+boundary_width = 0.15
+# Время сглаживания в тиках, 0 отключает сглаживание.
+transition_ticks = 3.0
+```
+
+При смене мира и дальних телепортациях состояние сбрасывается. Внутри закрытого самолёта/помещения эффект тоже работает: проверяется облако в позиции камеры, герметичность кабины пока не моделируется.
+
+## Сборка и зависимости
+
+`./gradlew build` (Windows: `gradlew.bat build`), JDK 21. Сборка использует JAR Simple Clouds из `libs`, API 1.4-1.21.1 и CrackersLib 1.21.1-0.4.6 из Maven автора. Для запуска клиента разработки Simple Clouds и CrackersLib подключены через `localRuntime`; API поставляется внутри Simple Clouds. При обычной установке установите Simple Clouds и CrackersLib отдельно — Aero Works не включает их в свой JAR.
+
+Create и Sable уже лежат в `libs`, но для текущей функции не используются и не подключаются к classpath. Сборка нацелена на NeoForge 21.1.256, как основная сборка пользователя.
+
+`check` запускает семь проверок периодичности шума, границ/пустот/слоёв облака, ветра, плавности при разном FPS и сочетания с существующим туманом. Проверки не заменяют запуск игры.
+
+## Проверка в игре
+
+1. Полёт в плотное облако: дальность уменьшается примерно до 24 блоков, цвет соответствует облаку.
+2. Выход из облака, полёт через просвет и выше/ниже слоёв: видимость восстанавливается.
+3. Проверить движущееся облако, DEFAULT и SINGLE, вид от третьего лица, день/ночь и грозу.
+4. Проверить воду/лаву, слепоту, смену измерения, отключение `cloud_fog.enabled` и `renderClouds` Simple Clouds.
+
+Алгоритм совпадает с непрерывным полем шума Simple Clouds, но сам мод рисует облако кубическими ячейками и обновляет mesh с задержкой. Поэтому на поверхности возможна погрешность в несколько блоков; она смягчается переходом. Сторонние шейдерпаки, заменяющие стандартный туман, и Distant Horizons требуют отдельной проверки в игре.
