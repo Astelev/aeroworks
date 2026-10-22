@@ -8,7 +8,7 @@ Minecraft 1.21.1 / NeoForge 21.1.256. Клиентский туман внутр
 
 ## Настройки
 
-После первого запуска: `config/aeroworks-client.toml`.
+После первого запуска: `config/aste_aeroworks-client.toml`.
 
 ```toml
 [cloud_fog]
@@ -39,3 +39,7 @@ Create и Sable уже лежат в `libs`, но для текущей функ
 4. Проверить воду/лаву, слепоту, смену измерения, отключение `cloud_fog.enabled` и `renderClouds` Simple Clouds.
 
 Алгоритм совпадает с непрерывным полем шума Simple Clouds, но сам мод рисует облако кубическими ячейками и обновляет mesh с задержкой. Поэтому на поверхности возможна погрешность в несколько блоков; она смягчается переходом. Сторонние шейдерпаки, заменяющие стандартный туман, и Distant Horizons требуют отдельной проверки в игре.
+
+## Идентификатор мода
+
+ID Aero Works — `aste_aeroworks`. Имя JAR после сборки: `aste_aeroworks-1.0.0.jar`. Старый `aeroworks-1.0.0.jar` нужно убрать из папки `mods` перед установкой нового. ID `aeroworks` принадлежит другому моду, который могут требовать Gadgets ’n Gizmos и Create Thrusters; Aero Works не заменяет эту зависимость. Если ранее менялись параметры нашего тумана, перенесите их из `aeroworks-client.toml` в `aste_aeroworks-client.toml`.
