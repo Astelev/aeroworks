@@ -23,6 +23,10 @@ public final class CloudFogTest {
         return CloudDensity.sample(layers, 1.25f, y, 2.5f, 0, 0, 0, regionFade);
     }
     private static void noisePeriods() {
+        // Reference values from independent vector evaluation of the bundled GLSL.
+        near(-.1991929f, PsrdNoise.sample(-2.25f, 1.5f, -.75f, 0), .00001f, "Shader reference, static gradients");
+        near(-.007954901f, PsrdNoise.sample(-2.077f, 1.891f, -.679f, .31f), .00001f, "Shader reference, animated gradients");
+        near(.68518454f, PsrdNoise.sample(-1.731f, 2.6729999f, -.537f, .93f), .00001f, "Shader reference, positive density");
         for (float alpha : new float[]{0, .75f, -2}) {
             float a = PsrdNoise.sample(-3.25f, 7.5f, 1.125f, alpha);
             near(a, PsrdNoise.sample(28.75f, 7.5f, 1.125f, alpha), .0001f, "X tiling");

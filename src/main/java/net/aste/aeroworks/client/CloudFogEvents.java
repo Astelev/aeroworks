@@ -73,6 +73,11 @@ public final class CloudFogEvents {
         strength = 0;
     }
 
+    @SubscribeEvent
+    public static void logout(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
+        reset();
+    }
+
     @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)
     public static void fog(ViewportEvent.RenderFog event) {
         float amount = update(event.getCamera(), (float) event.getPartialTick());
