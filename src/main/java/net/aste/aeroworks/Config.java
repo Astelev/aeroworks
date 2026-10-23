@@ -28,6 +28,22 @@ public class Config {
             .comment("A list of items to log on common setup.")
             .defineListAllowEmpty("items", List.of("minecraft:iron_ingot"), () -> "", Config::validateItemName);
 
+    public static final ModConfigSpec.BooleanValue WIND_ENABLED;
+    public static final ModConfigSpec.DoubleValue WIND_X;
+    public static final ModConfigSpec.DoubleValue WIND_Y;
+    public static final ModConfigSpec.DoubleValue WIND_Z;
+    static {
+        BUILDER.push("wind");
+        WIND_ENABLED = BUILDER.comment("Серверный ветер для аэродинамических поверхностей Sable: парусов и крыльев.")
+                .define("enabled", true);
+        WIND_X = BUILDER.comment("Мировая скорость воздуха в блоках/сек. +X = на восток, -X = на запад.")
+                .defineInRange("velocity_x", 8.0, -128.0, 128.0);
+        WIND_Y = BUILDER.comment("Вертикальная скорость воздуха: +Y вверх, -Y вниз.")
+                .defineInRange("velocity_y", 0.0, -128.0, 128.0);
+        WIND_Z = BUILDER.comment("Горизонтальная скорость воздуха: +Z на юг, -Z на север.")
+                .defineInRange("velocity_z", 0.0, -128.0, 128.0);
+        BUILDER.pop();
+    }
     static final ModConfigSpec SPEC = BUILDER.build();
 
     private static boolean validateItemName(final Object obj) {

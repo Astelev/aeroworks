@@ -108,3 +108,17 @@ config="aeroworks.mixins.json"
 # stop your mod loading on the server for example.
 #[features.${mod_id}]
 #openGLVersion="[3.2,)"
+
+[[dependencies.${mod_id}]]
+    modId="sable"
+    type="required"
+    versionRange="[2.0.6]"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="ldfix"
+    type="optional"
+    versionRange="[1.0.0,)"
+    ordering="AFTER"
+    side="BOTH"

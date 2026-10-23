@@ -116,7 +116,24 @@ configurations {
     runtimeClasspath.extendsFrom localRuntime
 }
 
+// Sable's public Pose3d API is bundled as a nested jar, not a Maven dependency.
+def sableJar = file('libs/sable-neoforge-1.21.1-2.0.6.jar')
+def sableCompileDir = layout.buildDirectory.dir('sableCompileLibraries')
+def unpackSableLibraries = tasks.register('unpackSableLibraries', Copy) {
+    from(zipTree(sableJar)) {
+        include 'META-INF/jarjar/*.jar'
+        eachFile { path = name }
+        includeEmptyDirs = false
+    }
+    into sableCompileDir
+}
+def sableCompileLibraries = files(fileTree(sableCompileDir) { include '*.jar' }).builtBy(unpackSableLibraries)
+
 dependencies {
+    compileOnly files(sableJar)
+    compileOnly sableCompileLibraries
+    testImplementation sableCompileLibraries
+    localRuntime files(sableJar, 'libs/create-aeronautics-lift-patch-1.1.0.jar')
     compileOnly files('libs/simpleclouds-0.7.3+1.21.1-all.jar')
     localRuntime files('libs/simpleclouds-0.7.3+1.21.1-all.jar')
     compileOnly('nonamecrackers2:simplecloudsapi-neoforge:1.4-1.21.1') { transitive = false }
@@ -207,3 +224,11 @@ def testCloudFog = tasks.register('testCloudFog', JavaExec) {
 }
 tasks.named('test', Test) { failOnNoDiscoveredTests = false }
 tasks.named('check') { dependsOn testCloudFog }
+
+def testWind = tasks.register('testWind', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.WindTest'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testWind }
