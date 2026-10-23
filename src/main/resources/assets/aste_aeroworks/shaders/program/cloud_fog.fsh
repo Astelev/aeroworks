@@ -23,40 +23,45 @@ float distanceFromDepth(float depth, mat4 inverseProjection) {
     return length(view.xyz / view.w);
 }
 
+float fogAt(float distance) {
+    return smoothstep(Visibility * 0.1, Visibility, distance) * Strength;
+}
+
 void main() {
     vec4 original = texture(DiffuseSampler, texCoord);
     float mainDepth = texture(MainDepthSampler, texCoord).r;
     bool hasMainSurface = mainDepth >= 0.0 && mainDepth < 1.0;
-    float distance = distanceFromDepth(mainDepth, InverseProjection);
+    float mainDistance = distanceFromDepth(mainDepth, InverseProjection);
+    float backgroundDistance = mainDistance;
+    float dhDistance = 1.0e10;
+    vec4 cloud = vec4(0.0);
     if (HasDhDepth != 0) {
-        // Raw depths from these two projections cannot be compared directly.
-        float dhDistance = distanceFromDepth(texture(DhDepthSampler, texCoord).r, InverseDhProjection);
-        // The DH pipeline used to composite here before Sodium terrain existed.
-        // Compose now, rejecting cloud fragments behind the final near terrain.
-        if (dhDistance < distance) {
-            vec4 cloud = texture(CloudsSampler, texCoord);
-            original.rgb = mix(original.rgb, cloud.rgb, cloud.a);
-            if (HasTransparency != 0) {
-                float reveal = texture(RevealSampler, texCoord).r;
-                vec4 accum = texture(AccumSampler, texCoord);
-                if (any(isinf(accum.rgb))) accum.rgb = vec3(accum.a);
-                original.rgb = mix(accum.rgb / max(accum.a, .00001), original.rgb, reveal);
-            }
-        }
-        // This depth target mixes DH terrain and opaque clouds. It does not
-        // establish visibility over native terrain in the completed image.
-        // Native surface pixels own their fog distance: hidden LOD/cave depth
-        // must never imprint its silhouette on them. Only an actual opaque
-        // cloud in front may replace that surface's fog distance.
-        vec4 opaqueCloud = texture(CloudsSampler, texCoord);
+        dhDistance = distanceFromDepth(texture(DhDepthSampler, texCoord).r, InverseDhProjection);
+        cloud = texture(CloudsSampler, texCoord);
+        // Native terrain owns its fog distance. The DH target mixes LOD and
+        // opaque cloud depth; neither may shade hidden caves over native land.
         if (!hasMainSurface) {
-            distance = dhDistance;
-        } else if (opaqueCloud.a > 0.0 && dhDistance < distance) {
-            distance = dhDistance;
+            // If depth belongs to a cloud, it says nothing about the sky/LOD
+            // behind it. Never give the background that nearby cloud distance.
+            backgroundDistance = cloud.a > 0.0 ? 1.0e10 : dhDistance;
         }
     }
-    float alpha = smoothstep(Visibility * 0.1, Visibility, distance) * Strength;
-    // Main-target alpha is not scene visibility. Sky/DH can contain RGB with
-    // alpha=0; the completed world must be presented as an opaque image.
-    fragColor = vec4(mix(original.rgb, FogColor, alpha), 1.0);
+    vec3 color = mix(original.rgb, FogColor, fogAt(backgroundDistance));
+    if (HasDhDepth != 0 && (dhDistance < mainDistance || !hasMainSurface)) {
+        // Shade each layer BEFORE compositing it. At full immersion dissolve
+        // even nearby cloud mesh faces into the volumetric fog color, without
+        // changing visibility for nearby terrain, entities or particles.
+        float cloudFog = max(fogAt(dhDistance), Strength * Strength);
+        vec3 cloudColor = mix(cloud.rgb, FogColor, cloudFog);
+        color = mix(color, cloudColor, cloud.a);
+        if (HasTransparency != 0) {
+            float reveal = texture(RevealSampler, texCoord).r;
+            vec4 accum = texture(AccumSampler, texCoord);
+            if (any(isinf(accum.rgb))) accum.rgb = vec3(accum.a);
+            vec3 transparentColor = mix(accum.rgb / max(accum.a, .00001), FogColor, cloudFog);
+            color = mix(transparentColor, color, reveal);
+        }
+    }
+    // The completed world is opaque even if sky/DH input had alpha=0.
+    fragColor = vec4(color, 1.0);
 }

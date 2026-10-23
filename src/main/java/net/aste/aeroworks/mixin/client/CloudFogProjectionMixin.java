@@ -17,4 +17,11 @@ public abstract class CloudFogProjectionMixin {
             GameRenderer renderer, LightTexture light, Matrix4f view, Matrix4f projection, CallbackInfo ci) {
         CloudFogPostProcess.captureProjection(projection, tracker.getGameTimeDeltaPartialTick(true));
     }
+    // NeoForge renders solid and translucent particles separately (or together
+    // in Fabulous). Run once before the first particle pass, after opaque terrain.
+    @Inject(method = "renderLevel", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/client/particle/ParticleEngine;render(Lnet/minecraft/client/renderer/LightTexture;Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/culling/Frustum;Ljava/util/function/Predicate;)V"))
+    private void aste_aeroworks$beforeParticles(CallbackInfo ci) {
+        CloudFogPostProcess.finishWorld();
+    }
 }

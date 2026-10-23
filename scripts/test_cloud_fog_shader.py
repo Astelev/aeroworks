@@ -260,4 +260,60 @@ full_chain(.2,0,1,'partial scene alpha does not dim RGB')
 full_chain(1,0,0,'opaque chunks retain brightness')
 full_chain(0,1,1,'dense fog covers alpha-zero DH')
 full_chain(0,.25,1,'weak fog preserves alpha-zero scene brightness')
-print('Cloud fog GLSL: 22 software OpenGL checks passed (including 6 full-chain checks)')
+# Cloud layers must not lend their near depth to the sky behind them.
+def layered_cloud(main, dh, rgba, transparent, expected, label):
+    use(program)
+    disable(0x0BE2)
+    bind_fbo(0x8D40,fbo)
+    upload(1,main_texture,depth(main,.1,2048))
+    upload(2,dh_texture,depth(dh,16,65536))
+    active_tex(0x84C0+4)
+    bind_tex(0x0DE1,cloud_texture)
+    tex_image(0x0DE1,0,0x8814,1,1,0,0x1908,0x1406,(F*4)(*rgba))
+    active_tex(0x84C0+5)
+    bind_tex(0x0DE1,accum_texture)
+    tex_image(0x0DE1,0,0x8814,1,1,0,0x1908,0x1406,(F*4)(1,1,1,1))
+    upload(6,reveal_texture,.5)
+    u1i(location(program,b'HasDhDepth'),1)
+    u1i(location(program,b'HasTransparency'),int(transparent))
+    u1f(location(program,b'Strength'),1)
+    draw(4,0,3)
+    result=(F*4)()
+    read(0,0,1,1,0x1908,0x1406,result)
+    assert max(abs(a-b) for a,b in zip(result[:3],expected))<.0001,(label,list(result))
+    assert error()==0,label
+
+layered_cloud(None,17,(1,1,1,1),False,fog,'near opaque cloud faces dissolve in dense fog')
+layered_cloud(None,17,(1,1,1,.2),False,fog,'sky behind near partially opaque cloud is fully fogged')
+layered_cloud(None,None,(0,0,0,0),True,fog,'transparent-only cloud over clear sky is composited and fogged')
+layered_cloud(1,17,(1,1,1,1),False,original[:3],'near native terrain still occludes cloud layers')
+
+# Effects are blended AFTER the world/cloud pass, not hidden by another pass.
+effect_program=create_program()
+attach(effect_program,shader(0x8B31,vertex))
+attach(effect_program,shader(0x8B30,'''#version 150
+uniform vec4 EffectColor;
+out vec4 fragColor;
+void main() { fragColor=EffectColor; }
+'''))
+link(effect_program)
+program_iv(effect_program,0x8B82,C.byref(ok))
+assert ok.value,'foreground effect shader failed to link'
+u4f=bind(gl,'glUniform4f',None,I,F,F,F,F)
+
+def foreground_effect(rgba,label):
+    full_chain(0,1,1,'opaque fog background before '+label)
+    use(effect_program)
+    enable(0x0BE2)
+    blend_func(0x0302,0x0303)
+    u4f(location(effect_program,b'EffectColor'),*rgba)
+    draw(4,0,3)
+    result=(F*4)()
+    read(0,0,1,1,0x1908,0x1406,result)
+    expected=[a*rgba[3]+b*(1-rgba[3]) for a,b in zip(rgba[:3],fog)]
+    assert max(abs(a-b) for a,b in zip(result[:3],expected))<.0001,(label,list(result),expected)
+    assert error()==0,label
+
+foreground_effect((1,1,1,.5),'near rain/particle')
+foreground_effect((.9,.95,1,.8),'near snowflake')
+print('Cloud fog GLSL: 28 software OpenGL checks passed (including layer and foreground-effect checks)')

@@ -14,7 +14,7 @@ public abstract class CloudFogFrameMixin {
         CloudFogPostProcess.beginFrame();
     }
 
-    // AFTER_LEVEL can be dispatched before other mods finish their tail injections.
+    // Fallback only: the ordinary pass already ran before particles/weather.
     @Inject(method = "renderLevel", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/client/renderer/LevelRenderer;renderLevel(Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/Camera;Lnet/minecraft/client/renderer/GameRenderer;Lnet/minecraft/client/renderer/LightTexture;Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;)V",
             shift = At.Shift.AFTER))
