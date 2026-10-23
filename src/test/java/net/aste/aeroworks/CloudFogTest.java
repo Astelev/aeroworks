@@ -11,6 +11,7 @@ import net.aste.aeroworks.cloud.PsrdNoise;
 public final class CloudFogTest {
     public static void main(String[] args) {
         sampleBudget();
+        heightRange();
         noisePeriods();
         layerBounds();
         emptySpace();
@@ -24,24 +25,51 @@ public final class CloudFogTest {
         oncePerFrame();
         abandonedFrame();
         failedFogStillDrawsEffects();
-        System.out.println("Cloud fog: 14 regression checks passed");
+        System.out.println("Cloud fog: 15 regression checks passed");
     }
 
     private static void sampleBudget() {
         var clock = new FogSampleClock();
         int samples = 0;
         for (int frame = 0; frame < 1200; frame++) {
-            double time = frame / 6.0; // 120 FPS, 20 game ticks/second
-            if (clock.shouldSample(time, 0, 0, 0)) samples++;
-            require(!clock.shouldSample(time, 0, 0, 0), "Repeated viewport events reuse density");
+            double time = frame / 6.0; // Ten seconds at 120 FPS.
+            if (clock.shouldSample(time)) { samples++; clock.record(-1, 0); }
+            require(!clock.shouldSample(time), "Repeated viewport events reuse density");
         }
-        require(samples <= 200, "Stationary noise sampling limited to 20 Hz at 120 FPS");
-        require(clock.shouldSample(200, .5, 0, 0), "Half-block movement refreshes immediately");
-        require(clock.shouldSample(200, .5, .5, 0), "Vertical movement refreshes immediately");
-        require(!clock.shouldSample(200, .5, .5, 0), "Same position/time reuses target");
-        require(clock.shouldSample(0, .5, .5, 0), "Time rollback refreshes");
+        require(samples <= 6, "Stable clear space uses at most six samples in ten seconds");
         clock.reset();
-        require(clock.shouldSample(0, .5, .5, 0), "World/reload reset refreshes");
+        require(clock.shouldSample(0), "Initial query");
+        clock.record(-.5f, 0);
+        require(!clock.shouldSample(19), "Initial plateau waits one second");
+        require(clock.shouldSample(20), "Bounded initial delay");
+        clock.record(-.05f, .3f);
+        require(!clock.shouldSample(23.99), "Sharp change still obeys five-Hz cap");
+        require(clock.shouldSample(24), "Sharp density change schedules a fast follow-up");
+        clock.record(-.049f, .301f);
+        require(!clock.shouldSample(28), "Stable result backs off");
+        require(clock.shouldSample(32), "Backoff remains bounded");
+        clock.record(.5f, 1);
+        require(clock.shouldSample(36), "Entering dense fog gets one fast confirmation");
+        clock.record(1, 1);
+        require(!clock.shouldSample(40), "Fully fogged camera does not keep sampling at five Hz");
+        require(clock.shouldSample(56), "Dense cloud checks again after one second");
+        clock.record(1, 1);
+        require(!clock.shouldSample(95), "Stable dense fog backs off to two seconds");
+        require(clock.shouldSample(96), "Dense cloud still checks for exit");
+        clock.record(-.5f, 0);
+        require(clock.shouldSample(100), "Sharp exit also schedules a fast follow-up");
+        require(clock.shouldSample(0), "Time rollback refreshes");
+        clock.reset();
+        require(clock.shouldSample(0), "World/reload reset refreshes");
+    }
+    private static void heightRange() {
+        require(!CloudDensity.withinHeightRange(127.99, 192, -8, 32), "Skip below lowest negative layer offset");
+        require(CloudDensity.withinHeightRange(128, 192, -8, 32), "Lower layer boundary included");
+        require(CloudDensity.withinHeightRange(192, 192, -8, 32), "Cloud base is not a universal lower bound");
+        require(CloudDensity.withinHeightRange(448, 192, -8, 32), "Upper bound conservative and inclusive");
+        require(!CloudDensity.withinHeightRange(448.01, 192, -8, 32), "Skip above all possible layers");
+        require(!CloudDensity.withinHeightRange(200, 192, Integer.MAX_VALUE, Integer.MIN_VALUE), "All empty layers skip noise");
+        require(CloudDensity.withinHeightRange(200, 192, Integer.MIN_VALUE, Integer.MAX_VALUE), "Unknown types never hide clouds");
     }
     private static float[] layer(float offset, float height, float density, float noiseScale) {
         return new float[]{height, density, 30, 10, 30, 2, offset, noiseScale};

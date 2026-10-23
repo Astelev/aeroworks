@@ -3,6 +3,7 @@ package net.aste.aeroworks.mixin.wind;
 import dev.ryanhcode.sable.api.block.BlockSubLevelLiftProvider;
 import dev.ryanhcode.sable.companion.math.Pose3d;
 import dev.ryanhcode.sable.sublevel.ServerSubLevel;
+import net.aste.aeroworks.Config;
 import net.aste.aeroworks.wind.WindFields;
 import net.aste.aeroworks.wind.StepWind;
 import net.aste.aeroworks.wind.WindSample;
@@ -39,9 +40,9 @@ public abstract class ServerSubLevelWindMixin {
             var level = subLevel.getLevel();
             WindFields.sample(new WindSample(level, position.x(), position.y(), position.z(),
                     level.getGameTime() / 20.0), aste_aeroworks$wind.sampleBuffer());
-            aste_aeroworks$wind.prepare(linearVelocity);
+            aste_aeroworks$wind.prepare(linearVelocity, Config.SAIL_PRESSURE_COEFFICIENT.get());
         }
-        provider.sable$contributeLiftAndDrag(context, subLevel, localPose, timeStep,
+        provider.sable$contributeLiftAndDrag(context, subLevel, localPose, aste_aeroworks$wind.aerodynamicTimeStep(timeStep),
                 aste_aeroworks$wind.velocity(linearVelocity), angularVelocity,
                 linearImpulse, angularImpulse, group);
     }

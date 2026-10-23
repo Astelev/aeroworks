@@ -32,6 +32,7 @@ public class Config {
     public static final ModConfigSpec.DoubleValue WIND_X;
     public static final ModConfigSpec.DoubleValue WIND_Y;
     public static final ModConfigSpec.DoubleValue WIND_Z;
+    public static final ModConfigSpec.DoubleValue SAIL_PRESSURE_COEFFICIENT;
     static {
         BUILDER.push("wind");
         WIND_ENABLED = BUILDER.comment("Серверный ветер для аэродинамических поверхностей Sable: парусов и крыльев.")
@@ -42,6 +43,10 @@ public class Config {
                 .defineInRange("velocity_y", 0.0, -128.0, 128.0);
         WIND_Z = BUILDER.comment("Горизонтальная скорость воздуха: +Z на юг, -Z на север.")
                 .defineInRange("velocity_z", 0.0, -128.0, 128.0);
+        SAIL_PRESSURE_COEFFICIENT = BUILDER
+                .comment("Множитель аэродинамического давления на паруса/крылья. 1 = прежняя сила, 0.1 = в десять раз слабее.",
+                        "Масштабирует подъёмную силу, сопротивление и их моменты, включая полёт в неподвижном воздухе. Скорость ветра не меняется.")
+                .defineInRange("sail_pressure_coefficient", 1.0, 0.0, 10.0);
         BUILDER.pop();
     }
     static final ModConfigSpec SPEC = BUILDER.build();

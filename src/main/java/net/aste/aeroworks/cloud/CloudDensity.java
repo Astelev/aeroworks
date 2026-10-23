@@ -4,6 +4,12 @@ package net.aste.aeroworks.cloud;
 public final class CloudDensity {
     private CloudDensity() {}
 
+    /** Noise heights are relative to the cloud base, in units of eight world blocks. */
+    public static boolean withinHeightRange(double worldY, int cloudBase, int min, int max) {
+        double y = (worldY - cloudBase) / 8.0;
+        return y >= min && y <= max;
+    }
+
     public static float sample(float[] layers, float x, float y, float z,
                                float scrollX, float scrollY, float scrollZ, float outerFade) {
         float sum = 0;

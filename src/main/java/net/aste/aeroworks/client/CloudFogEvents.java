@@ -30,6 +30,7 @@ public final class CloudFogEvents {
     private static Object packedNoise;
     private static float[] packedLayers;
     private static double packedTime;
+    private static final CloudHeightBounds heightBounds = new CloudHeightBounds();
 
     private CloudFogEvents() {}
 
@@ -61,26 +62,28 @@ public final class CloudFogEvents {
         }
         var manager = CloudManager.get(level);
         boolean reset = level != lastLevel || lastPos == null || pos.distanceToSqr(lastPos) > 128 * 128 || time < lastTime;
-        if (reset) { sampleClock.reset(); packedNoise = null; }
-        if (sampleClock.shouldSample(time, pos.x, pos.y, pos.z)) {
+        if (reset) { sampleClock.reset(); packedNoise = null; heightBounds.reset(); }
+        // Only metadata is consulted here: no region lookup, packing or noise below/above clouds.
+        if (manager.getCloudMode() == CloudMode.AMBIENT || !heightBounds.contains(manager, time, pos.y)) {
             target = 0;
-            // AMBIENT deliberately removes clouds around the camera in its mesh shader.
-            if (manager.getCloudMode() != CloudMode.AMBIENT) {
-                var info = manager.getCloudTypeAtWorldPos((float) pos.x, (float) pos.z);
-                var noise = info.getLeft().noiseConfig();
-                if (packedNoise != noise || time - packedTime >= 20) {
-                    packedLayers = noise.packForShader();
-                    packedNoise = noise;
-                    packedTime = time;
-                }
-                var layers = packedLayers;
-                float density = CloudDensity.sample(layers, (float) (pos.x / 8),
-                        (float) ((pos.y - manager.getCloudHeight()) / 8), (float) (pos.z / 8),
-                        manager.getScrollX(partialTick), manager.getScrollY(partialTick), manager.getScrollZ(partialTick), info.getRight());
-                target = CloudDensity.edgeStrength(density + CloudFogConfig.DENSITY_OFFSET.get().floatValue(),
-                        CloudFogConfig.BOUNDARY_WIDTH.get().floatValue(),
-                        CloudFogConfig.EDGE_DENSITY_MARGIN.get().floatValue());
+            sampleClock.reset(); // Entering a possible layer must sample immediately.
+        } else if (sampleClock.shouldSample(time)) {
+            target = 0;
+            var info = manager.getCloudTypeAtWorldPos((float) pos.x, (float) pos.z);
+            var noise = info.getLeft().noiseConfig();
+            if (packedNoise != noise || time - packedTime >= 20) {
+                packedLayers = noise.packForShader();
+                packedNoise = noise;
+                packedTime = time;
             }
+            var layers = packedLayers;
+            float density = CloudDensity.sample(layers, (float) (pos.x / 8),
+                    (float) ((pos.y - manager.getCloudHeight()) / 8), (float) (pos.z / 8),
+                    manager.getScrollX(partialTick), manager.getScrollY(partialTick), manager.getScrollZ(partialTick), info.getRight());
+            target = CloudDensity.edgeStrength(density + CloudFogConfig.DENSITY_OFFSET.get().floatValue(),
+                    CloudFogConfig.BOUNDARY_WIDTH.get().floatValue(),
+                    CloudFogConfig.EDGE_DENSITY_MARGIN.get().floatValue());
+            sampleClock.record(density, target);
         }
         strength = reset ? target : CloudDensity.smooth(strength, target, time - lastTime, CloudFogConfig.TRANSITION_TICKS.get());
         if (strength < .0001f) strength = 0;
@@ -96,6 +99,7 @@ public final class CloudFogEvents {
         lastTime = Double.NaN;
         strength = 0;
         sampleClock.reset();
+        heightBounds.reset();
         packedNoise = null;
         packedLayers = null;
     }

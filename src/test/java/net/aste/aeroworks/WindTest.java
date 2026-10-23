@@ -11,8 +11,8 @@ import org.joml.Vector3dc;
 public final class WindTest {
     public static void main(String[] args) {
         calm(); stationary(); coflow(); headwind(); crosswind(); immutability();
-        angularMotion(); worldPosition(); nestedPosition(); positionProvider(); stepCache();
-        System.out.println("Wind: 11 kinematics/provider checks passed");
+        angularMotion(); worldPosition(); nestedPosition(); positionProvider(); stepCache(); pressureCoefficient();
+        System.out.println("Wind: 12 kinematics/provider checks passed");
     }
     private static void calm() {
         var velocity = new Vector3d(1,2,3);
@@ -98,6 +98,18 @@ public final class WindTest {
         step.sampleBuffer().zero();
         step.prepare(body);
         require(step.velocity(body) == body, "Disabled/calm returns original object");
+    }
+    private static void pressureCoefficient() {
+        var step = new StepWind();
+        var body = new Vector3d(10,2,3);
+        step.sampleBuffer().set(8,0,0);
+        for (double coefficient : new double[]{0, .1, 1, 2}) {
+            step.prepare(body, coefficient);
+            require(Math.abs(step.aerodynamicTimeStep(.05) - .05 * coefficient) < 1e-12,
+                    "Pressure scales aerodynamic impulse integration linearly");
+            near(new Vector3d(2,2,3), step.velocity(body), "Pressure must not change relative air velocity");
+        }
+        near(new Vector3d(10,2,3),body,"Pressure leaves body velocity intact");
     }
     private static void near(Vector3dc expected, Vector3dc actual, String label) {
         require(new Vector3d(expected).sub(actual).length() < 1e-8,label + ": " + actual);
