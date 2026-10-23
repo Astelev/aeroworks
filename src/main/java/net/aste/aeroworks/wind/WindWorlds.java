@@ -20,7 +20,7 @@ public final class WindWorlds {
     private static final ThreadLocal<ZonalWindModel.Result> RESULT = ThreadLocal.withInitial(ZonalWindModel.Result::new);
     private static final int MAX_WEATHER_READS_PER_TICK = 16;
     private record BodyWeather(double checked, WindWeatherBlend weather, double exposure, double minY, double maxY,
-            int sails, MountainFlow[] flows, TurbulenceEpisode episode, double phase, double rate) {}
+            int sails, MountainFlow[] flows, TurbulenceEpisode episode) {}
     private static final class Flight {
         final java.util.UUID uuid;
         final TurbulenceTracker tracker;
@@ -57,7 +57,7 @@ public final class WindWorlds {
             var snapshot = world.snapshot;
             var body = snapshot.bodies().get(sample.bodyId());
             double elapsed=Math.max(0,sample.timeSeconds()-snapshot.time());
-            double phase = body==null ? snapshot.phase()+elapsed*snapshot.rate() : body.phase()+elapsed*body.rate();
+            double phase = snapshot.phase()+elapsed*snapshot.rate();
             ZonalWindModel.sample(p, world.seed, phase, sample.x(), sample.y(), sample.z(),
                     body == null ? WindWeatherBlend.CLEAR : body.weather(), sample.timeSeconds(), result);
             if(body!=null) FlightWindEffects.apply(WindSettings.current().effects(),sample.timeSeconds(),
@@ -81,7 +81,13 @@ public final class WindWorlds {
         double phase = rollback ? now / p.fallbackPeriod() : old.phase() + (now - old.time()) * old.rate();
         double rate = old.rate();
         var manager = CloudManager.get(level);
-        if (rollback || level.getGameTime() % 20 == 0) rate = 1 / SimpleCloudsWind.period(manager, p);
+        if (rollback || level.getGameTime() % 20 == 0) {
+            // One shared clock keeps co-located aircraft in the same horizontal wind field.
+            // Use the strongest SC thunder sampled in an active flight area, not vanilla global rain.
+            double storm=0;
+            if(!rollback) for(var weather:old.bodies().values()) storm=Math.max(storm,weather.weather().storm(now));
+            rate=FlightWindEffects.directionRate(1/SimpleCloudsWind.period(manager,p),storm,effects);
+        }
         var container = SubLevelContainer.getContainer(level);
         if (container == null) return;
         var bodies = new Int2ObjectOpenHashMap<BodyWeather>();
@@ -108,7 +114,6 @@ public final class WindWorlds {
             flight.x=pos.x(); flight.y=pos.y(); flight.z=pos.z();
             if(!Double.isFinite(distance) || distance>256) { flight.tracker.reset(); distance=0; previous=null; }
             flights.put(id,flight);
-            double bodyPhase=previous==null ? phase : previous.phase()+Math.max(0,now-old.time())*previous.rate();
             if ((previous == null || now - previous.checked() >= 1) && reads < MAX_WEATHER_READS_PER_TICK) {
                 int sails=body.getPlot().getLiftProviders().size();
                 for(var contraption:body.getPlot().getContraptions()) {
@@ -119,7 +124,7 @@ public final class WindWorlds {
                 var blend = previous == null ? WindWeatherBlend.CLEAR : previous.weather();
                 var flows=sails==0 ? MountainFlowCatalog.EMPTY : world.terrain.nearby(level,world.seed,pos.x(),pos.z(),now,effects);
                 previous=new BodyWeather(now,blend.retarget(reading.weather(),now,p.transitionSeconds()),
-                        reading.exposure(),reading.minY(),reading.maxY(),sails,flows,null,bodyPhase,rate);
+                        reading.exposure(),reading.minY(),reading.maxY(),sails,flows,null);
                 reads++;
                 next = (index + 1) % size;
             }
@@ -129,8 +134,7 @@ public final class WindWorlds {
                 if(previous.sails()==0) flight.tracker.reset();
                 else flight.tracker.advance(distance,exposure,previous.weather().storm(now),now,effects);
                 bodies.put(id,new BodyWeather(previous.checked(),previous.weather(),previous.exposure(),previous.minY(),
-                        previous.maxY(),previous.sails(),previous.flows(),flight.tracker.snapshot(),bodyPhase,
-                        FlightWindEffects.directionRate(rate,previous.weather().storm(now),effects)));
+                        previous.maxY(),previous.sails(),previous.flows(),flight.tracker.snapshot()));
             }
         }
         world.cursor = next;
