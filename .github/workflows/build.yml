@@ -23,3 +23,12 @@ jobs:
 
       - name: Build with Gradle
         run: ./gradlew build
+
+      - name: Verify particle hook against mapped NeoForge bytecode
+        run: python3 scripts/check_particle_hook.py
+
+      - name: Test cloud fog shader with software OpenGL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libegl1 libgl1-mesa-dri
+          python3 scripts/test_cloud_fog_shader.py

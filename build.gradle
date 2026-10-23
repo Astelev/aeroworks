@@ -27,6 +27,7 @@ sourceSets.main.resources {
 }
 
 repositories {
+    maven { url = 'https://maven.nonamecrackers2.dev/releases' }
     // Add here additional repositories if required by some of the dependencies below.
 }
 
@@ -116,6 +117,11 @@ configurations {
 }
 
 dependencies {
+    compileOnly files('libs/simpleclouds-0.7.3+1.21.1-all.jar')
+    localRuntime files('libs/simpleclouds-0.7.3+1.21.1-all.jar')
+    compileOnly('nonamecrackers2:simplecloudsapi-neoforge:1.4-1.21.1') { transitive = false }
+    compileOnly('nonamecrackers2:crackerslib-neoforge:1.21.1-0.4.6') { transitive = false }
+    localRuntime('nonamecrackers2:crackerslib-neoforge:1.21.1-0.4.6') { transitive = false }
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
     // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"
@@ -188,3 +194,16 @@ idea {
         downloadJavadoc = true
     }
 }
+
+tasks.withType(Jar).configureEach {
+    from('LICENSES') { into 'META-INF/licenses' }
+}
+
+def testCloudFog = tasks.register('testCloudFog', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.CloudFogTest'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('test', Test) { failOnNoDiscoveredTests = false }
+tasks.named('check') { dependsOn testCloudFog }

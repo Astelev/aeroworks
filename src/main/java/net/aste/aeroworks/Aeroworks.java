@@ -34,7 +34,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 @Mod(Aeroworks.MODID)
 public class Aeroworks {
     // Define mod id in a common place for everything to reference
-    public static final String MODID = "aeroworks";
+    public static final String MODID = "aste_aeroworks";
     // Directly reference a slf4j logger
     public static final Logger LOGGER = LogUtils.getLogger();
     // Create a Deferred Register to hold Blocks which will all be registered under the "examplemod" namespace
