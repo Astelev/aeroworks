@@ -10,6 +10,10 @@ import org.lwjgl.opengl.GL30;
 
 /** A draw's camera/fog state, captured where vanilla intended to draw it. */
 final class DeferredEffectState {
+    // All queued draws return to the same state. Read the driver once for the
+    // whole replay batch rather than repeating the snapshot for every effect.
+    private static DeferredEffectState replayBaseline;
+    static void endReplay() { replayBaseline = null; }
     private final Matrix4f projection = new Matrix4f(RenderSystem.getProjectionMatrix());
     private final Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrix());
     private final com.mojang.blaze3d.vertex.VertexSorting sorting = RenderSystem.getVertexSorting();
@@ -27,12 +31,18 @@ final class DeferredEffectState {
     private final int dstRgb = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB);
     private final int srcAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA);
     private final int dstAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
-    private final int readFbo = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-    private final int drawFbo = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
-    private final int[] viewport = new int[4];
+    private final int readFbo, drawFbo;
+    private final int[] viewport;
 
-    DeferredEffectState() {
-        GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
+    DeferredEffectState() { this(false); }
+
+    private DeferredEffectState(boolean restoreTargets) {
+        // Original effect targets are never replayed (fabulous is already
+        // composited). Only the batch baseline needs these driver queries.
+        readFbo = restoreTargets ? GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING) : 0;
+        drawFbo = restoreTargets ? GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING) : 0;
+        viewport = restoreTargets ? new int[4] : null;
+        if (restoreTargets) GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
     }
 
     private void apply() {
@@ -53,7 +63,8 @@ final class DeferredEffectState {
     }
 
     void draw(Runnable draw) {
-        var previous = new DeferredEffectState();
+        if (replayBaseline == null) replayBaseline = new DeferredEffectState(true);
+        var previous = replayBaseline;
         var stack = RenderSystem.getModelViewStack();
         stack.pushMatrix();
         try {

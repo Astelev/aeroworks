@@ -15,7 +15,9 @@ def inspect(jar, name):
     return subprocess.run(['javap','-c','-p','-s','-classpath',str(jar),name],check=True,capture_output=True,text=True).stdout
 server = inspect(sable,'dev.ryanhcode.sable.sublevel.ServerSubLevel')
 assert server.count(needle) == 2, 'Expected exactly two ordinary/nested lift-provider calls in Sable'
-assert 'args.set(4,' in source, 'Only linear-velocity input slot 4 should be changed'
+assert '@Redirect' in source and 'aste_aeroworks$wind.velocity(linearVelocity)' in source
+assert 'if (!aste_aeroworks$wind.ready())' in source, 'Query wind once per body step'
+assert '@Inject(method = "prePhysicsTick", at = @At("HEAD"))' in source
 for jar, name in [(sable,'dev.ryanhcode.sable.api.block.BlockSubLevelLiftProvider'),
                   (patch,'com.aerofix.ldfix.mixin.BlockSubLevelLiftProviderMixin')]:
     code = inspect(jar,name)

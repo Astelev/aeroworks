@@ -6,6 +6,7 @@ import dev.nonamecrackers2.simpleclouds.common.config.SimpleCloudsConfig;
 import dev.nonamecrackers2.simpleclouds.common.world.CloudManager;
 import net.aste.aeroworks.Aeroworks;
 import net.aste.aeroworks.cloud.CloudDensity;
+import net.aste.aeroworks.cloud.FogSampleClock;
 import net.minecraft.client.Camera;
 import com.mojang.blaze3d.shaders.FogShape;
 import net.minecraft.client.Minecraft;
@@ -24,6 +25,11 @@ public final class CloudFogEvents {
     private static double lastTime = Double.NaN;
     private static Vec3 lastPos;
     private static float strength;
+    private static final FogSampleClock sampleClock = new FogSampleClock();
+    private static float target;
+    private static Object packedNoise;
+    private static float[] packedLayers;
+    private static double packedTime;
 
     private CloudFogEvents() {}
 
@@ -54,19 +60,28 @@ public final class CloudFogEvents {
             return 0;
         }
         var manager = CloudManager.get(level);
-        float target = 0;
-        // AMBIENT deliberately removes clouds around the camera in its mesh shader.
-        if (manager.getCloudMode() != CloudMode.AMBIENT) {
-            var info = manager.getCloudTypeAtWorldPos((float) pos.x, (float) pos.z);
-            var layers = info.getLeft().noiseConfig().packForShader();
-            float density = CloudDensity.sample(layers, (float) (pos.x / 8),
-                    (float) ((pos.y - manager.getCloudHeight()) / 8), (float) (pos.z / 8),
-                    manager.getScrollX(partialTick), manager.getScrollY(partialTick), manager.getScrollZ(partialTick), info.getRight());
-            target = CloudDensity.edgeStrength(density + CloudFogConfig.DENSITY_OFFSET.get().floatValue(),
-                    CloudFogConfig.BOUNDARY_WIDTH.get().floatValue(),
-                    CloudFogConfig.EDGE_DENSITY_MARGIN.get().floatValue());
-        }
         boolean reset = level != lastLevel || lastPos == null || pos.distanceToSqr(lastPos) > 128 * 128 || time < lastTime;
+        if (reset) { sampleClock.reset(); packedNoise = null; }
+        if (sampleClock.shouldSample(time, pos.x, pos.y, pos.z)) {
+            target = 0;
+            // AMBIENT deliberately removes clouds around the camera in its mesh shader.
+            if (manager.getCloudMode() != CloudMode.AMBIENT) {
+                var info = manager.getCloudTypeAtWorldPos((float) pos.x, (float) pos.z);
+                var noise = info.getLeft().noiseConfig();
+                if (packedNoise != noise || time - packedTime >= 20) {
+                    packedLayers = noise.packForShader();
+                    packedNoise = noise;
+                    packedTime = time;
+                }
+                var layers = packedLayers;
+                float density = CloudDensity.sample(layers, (float) (pos.x / 8),
+                        (float) ((pos.y - manager.getCloudHeight()) / 8), (float) (pos.z / 8),
+                        manager.getScrollX(partialTick), manager.getScrollY(partialTick), manager.getScrollZ(partialTick), info.getRight());
+                target = CloudDensity.edgeStrength(density + CloudFogConfig.DENSITY_OFFSET.get().floatValue(),
+                        CloudFogConfig.BOUNDARY_WIDTH.get().floatValue(),
+                        CloudFogConfig.EDGE_DENSITY_MARGIN.get().floatValue());
+            }
+        }
         strength = reset ? target : CloudDensity.smooth(strength, target, time - lastTime, CloudFogConfig.TRANSITION_TICKS.get());
         if (strength < .0001f) strength = 0;
         lastLevel = level;
@@ -80,7 +95,12 @@ public final class CloudFogEvents {
         lastPos = null;
         lastTime = Double.NaN;
         strength = 0;
+        sampleClock.reset();
+        packedNoise = null;
+        packedLayers = null;
     }
+
+    static void invalidate() { reset(); }
 
     @SubscribeEvent
     public static void logout(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {

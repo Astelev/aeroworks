@@ -2,6 +2,7 @@ package net.aste.aeroworks;
 
 import dev.ryanhcode.sable.companion.math.Pose3d;
 import net.aste.aeroworks.wind.WindField;
+import net.aste.aeroworks.wind.StepWind;
 import net.aste.aeroworks.wind.WindKinematics;
 import net.aste.aeroworks.wind.WindSample;
 import org.joml.Vector3d;
@@ -10,8 +11,8 @@ import org.joml.Vector3dc;
 public final class WindTest {
     public static void main(String[] args) {
         calm(); stationary(); coflow(); headwind(); crosswind(); immutability();
-        angularMotion(); worldPosition(); nestedPosition(); positionProvider();
-        System.out.println("Wind: 10 kinematics/provider checks passed");
+        angularMotion(); worldPosition(); nestedPosition(); positionProvider(); stepCache();
+        System.out.println("Wind: 11 kinematics/provider checks passed");
     }
     private static void calm() {
         var velocity = new Vector3d(1,2,3);
@@ -71,6 +72,32 @@ public final class WindTest {
         near(new Vector3d(1,2,5),result,"Position/height/time available to future fields");
         gradient.sample(b,result);
         near(new Vector3d(3,8,7),result,"Provider can vary across world points");
+    }
+    private static void stepCache() {
+        var step = new StepWind();
+        var body = new Vector3d(10, 2, 3);
+        int samples = 0;
+        for (int tick = 0; tick < 2; tick++) {
+            step.begin();
+            Vector3dc previous = null;
+            for (int sail = 0; sail < 10000; sail++) {
+                if (!step.ready()) {
+                    samples++;
+                    step.sampleBuffer().set(8 * (tick + 1), 0, 0);
+                    step.prepare(body);
+                }
+                var velocity = step.velocity(body);
+                near(new Vector3d(10 - 8 * (tick + 1), 2, 3), velocity, "Step velocity");
+                require(previous == null || previous == velocity, "Reuse same velocity for all surfaces");
+                previous = velocity;
+            }
+        }
+        require(samples == 2, "20,000 surfaces across two steps need exactly two samples");
+        near(new Vector3d(10,2,3), body, "Original body velocity retained");
+        step.begin();
+        step.sampleBuffer().zero();
+        step.prepare(body);
+        require(step.velocity(body) == body, "Disabled/calm returns original object");
     }
     private static void near(Vector3dc expected, Vector3dc actual, String label) {
         require(new Vector3d(expected).sub(actual).length() < 1e-8,label + ": " + actual);

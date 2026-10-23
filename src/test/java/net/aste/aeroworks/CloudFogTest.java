@@ -1,6 +1,7 @@
 package net.aste.aeroworks;
 
 import net.aste.aeroworks.cloud.CloudDensity;
+import net.aste.aeroworks.cloud.FogSampleClock;
 import net.aste.aeroworks.cloud.FrameEffectQueue;
 import java.util.ArrayList;
 import java.util.List;
@@ -9,6 +10,7 @@ import net.aste.aeroworks.cloud.PsrdNoise;
 /** Headless regressions for occupancy, animation and fog composition. */
 public final class CloudFogTest {
     public static void main(String[] args) {
+        sampleBudget();
         noisePeriods();
         layerBounds();
         emptySpace();
@@ -22,9 +24,25 @@ public final class CloudFogTest {
         oncePerFrame();
         abandonedFrame();
         failedFogStillDrawsEffects();
-        System.out.println("Cloud fog: 13 regression checks passed");
+        System.out.println("Cloud fog: 14 regression checks passed");
     }
 
+    private static void sampleBudget() {
+        var clock = new FogSampleClock();
+        int samples = 0;
+        for (int frame = 0; frame < 1200; frame++) {
+            double time = frame / 6.0; // 120 FPS, 20 game ticks/second
+            if (clock.shouldSample(time, 0, 0, 0)) samples++;
+            require(!clock.shouldSample(time, 0, 0, 0), "Repeated viewport events reuse density");
+        }
+        require(samples <= 200, "Stationary noise sampling limited to 20 Hz at 120 FPS");
+        require(clock.shouldSample(200, .5, 0, 0), "Half-block movement refreshes immediately");
+        require(clock.shouldSample(200, .5, .5, 0), "Vertical movement refreshes immediately");
+        require(!clock.shouldSample(200, .5, .5, 0), "Same position/time reuses target");
+        require(clock.shouldSample(0, .5, .5, 0), "Time rollback refreshes");
+        clock.reset();
+        require(clock.shouldSample(0, .5, .5, 0), "World/reload reset refreshes");
+    }
     private static float[] layer(float offset, float height, float density, float noiseScale) {
         return new float[]{height, density, 30, 10, 30, 2, offset, noiseScale};
     }

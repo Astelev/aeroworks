@@ -25,16 +25,21 @@ public final class CloudFogPostProcess {
     private static boolean failed;
     private static final FrameEffectQueue effects = new FrameEffectQueue();
     private static final Matrix4f worldProjection = new Matrix4f();
+    private static final Matrix4f inverseProjection = new Matrix4f();
     private static float framePartialTick;
     public static void captureProjection(Matrix4f projection, float partialTick) {
         worldProjection.set(projection);
         framePartialTick = partialTick;
     }
     public static void finishWorld() {
-        effects.finish(() -> {
-            CloudFogEvents.update(Minecraft.getInstance().gameRenderer.getMainCamera(), framePartialTick);
-            render(worldProjection, framePartialTick);
-        });
+        try {
+            effects.finish(() -> {
+                CloudFogEvents.update(Minecraft.getInstance().gameRenderer.getMainCamera(), framePartialTick);
+                render(worldProjection, framePartialTick);
+            });
+        } finally {
+            DeferredEffectState.endReplay();
+        }
     }
 
     public static void drawEffect(Runnable draw) {
@@ -60,6 +65,7 @@ public final class CloudFogPostProcess {
     }
 
     public static void close() {
+        CloudFogEvents.invalidate();
         if (chain != null) chain.close();
         chain = null;
         effects.begin();
@@ -110,7 +116,7 @@ public final class CloudFogPostProcess {
             var renderer = SimpleCloudsRenderer.getOptionalInstance().orElse(null);
             if (renderer == null) return;
             float gray = CloudFogEvents.gray(partialTick, amount);
-            Matrix4f inverseProjection = new Matrix4f(projection).invert();
+            inverseProjection.set(projection).invert();
             int depthTexture = dhDepth >= 0 ? dhDepth : main.getDepthTextureId();
             for (var pass : ((PostChainAccessor) chain).aste_aeroworks$passes()) {
                 var effect = pass.getEffect();
