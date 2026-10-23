@@ -110,14 +110,14 @@ public final class WindWorlds {
             flights.put(id,flight);
             double bodyPhase=previous==null ? phase : previous.phase()+Math.max(0,now-old.time())*previous.rate();
             if ((previous == null || now - previous.checked() >= 1) && reads < MAX_WEATHER_READS_PER_TICK) {
-                var reading = SimpleCloudsWind.read(level, manager, pos.x(), pos.y(), pos.z(), world.seed, p,
-                        world.clouds,now,effects.turbulenceEnabled());
-                var blend = previous == null ? WindWeatherBlend.CLEAR : previous.weather();
                 int sails=body.getPlot().getLiftProviders().size();
                 for(var contraption:body.getPlot().getContraptions()) {
                     if(contraption.sable$isValid()) sails+=contraption.sable$liftProviders().size();
                 }
-                var flows=world.terrain.nearby(level,world.seed,pos.x(),pos.z(),now,effects);
+                var reading = SimpleCloudsWind.read(level, manager, pos.x(), pos.y(), pos.z(), world.seed, p,
+                        world.clouds,now,effects.turbulenceEnabled() && sails>0);
+                var blend = previous == null ? WindWeatherBlend.CLEAR : previous.weather();
+                var flows=sails==0 ? MountainFlowCatalog.EMPTY : world.terrain.nearby(level,world.seed,pos.x(),pos.z(),now,effects);
                 previous=new BodyWeather(now,blend.retarget(reading.weather(),now,p.transitionSeconds()),
                         reading.exposure(),reading.minY(),reading.maxY(),sails,flows,null,bodyPhase,rate);
                 reads++;

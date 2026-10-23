@@ -44,9 +44,11 @@ public abstract class ServerSubLevelWindMixin {
             double coefficient=Config.SAIL_PRESSURE_COEFFICIENT.get();
             aste_aeroworks$wind.prepare(linearVelocity, coefficient);
             // Once per body, in world coordinates, through Sable's existing impulse accumulator.
-            double pressure=DimensionPhysicsData.getAirPressure(level,position);
-            if(Double.isFinite(pressure) && pressure>0) {
-                angularImpulse.fma(timeStep*coefficient*pressure,aste_aeroworks$wind.torqueBuffer());
+            if(coefficient>0 && aste_aeroworks$wind.torqueBuffer().lengthSquared()>0) {
+                double pressure=DimensionPhysicsData.getAirPressure(level,position);
+                if(Double.isFinite(pressure) && pressure>0) {
+                    angularImpulse.fma(timeStep*coefficient*pressure,aste_aeroworks$wind.torqueBuffer());
+                }
             }
         }
         provider.sable$contributeLiftAndDrag(context, subLevel, localPose, aste_aeroworks$wind.aerodynamicTimeStep(timeStep),
