@@ -25,7 +25,9 @@ float distanceFromDepth(float depth, mat4 inverseProjection) {
 
 void main() {
     vec4 original = texture(DiffuseSampler, texCoord);
-    float distance = distanceFromDepth(texture(MainDepthSampler, texCoord).r, InverseProjection);
+    float mainDepth = texture(MainDepthSampler, texCoord).r;
+    bool hasMainSurface = mainDepth >= 0.0 && mainDepth < 1.0;
+    float distance = distanceFromDepth(mainDepth, InverseProjection);
     if (HasDhDepth != 0) {
         // Raw depths from these two projections cannot be compared directly.
         float dhDistance = distanceFromDepth(texture(DhDepthSampler, texCoord).r, InverseDhProjection);
@@ -41,7 +43,17 @@ void main() {
                 original.rgb = mix(accum.rgb / max(accum.a, .00001), original.rgb, reveal);
             }
         }
-        distance = min(distance, dhDistance);
+        // This depth target mixes DH terrain and opaque clouds. It does not
+        // establish visibility over native terrain in the completed image.
+        // Native surface pixels own their fog distance: hidden LOD/cave depth
+        // must never imprint its silhouette on them. Only an actual opaque
+        // cloud in front may replace that surface's fog distance.
+        vec4 opaqueCloud = texture(CloudsSampler, texCoord);
+        if (!hasMainSurface) {
+            distance = dhDistance;
+        } else if (opaqueCloud.a > 0.0 && dhDistance < distance) {
+            distance = dhDistance;
+        }
     }
     float alpha = smoothstep(Visibility * 0.1, Visibility, distance) * Strength;
     // Main-target alpha is not scene visibility. Sky/DH can contain RGB with
