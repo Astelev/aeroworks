@@ -39,7 +39,7 @@ public abstract class ServerSubLevelWindMixin {
             var position = subLevel.logicalPose().position();
             var level = subLevel.getLevel();
             WindFields.sample(new WindSample(level, position.x(), position.y(), position.z(),
-                    level.getGameTime() / 20.0), aste_aeroworks$wind.sampleBuffer());
+                    level.getGameTime() / 20.0, subLevel.getRuntimeId()), aste_aeroworks$wind.sampleBuffer());
             aste_aeroworks$wind.prepare(linearVelocity, Config.SAIL_PRESSURE_COEFFICIENT.get());
         }
         provider.sable$contributeLiftAndDrag(context, subLevel, localPose, aste_aeroworks$wind.aerodynamicTimeStep(timeStep),

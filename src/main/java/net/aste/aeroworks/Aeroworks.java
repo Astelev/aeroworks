@@ -86,6 +86,8 @@ public class Aeroworks {
         // Register our mod's ModConfigSpec so that FML can create and load the config file for us
         modEventBus.addListener(net.aste.aeroworks.atmosphere.AtmosphereSettings::loading);
         modEventBus.addListener(net.aste.aeroworks.atmosphere.AtmosphereSettings::reloading);
+        modEventBus.addListener(net.aste.aeroworks.wind.WindSettings::loading);
+        modEventBus.addListener(net.aste.aeroworks.wind.WindSettings::reloading);
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 

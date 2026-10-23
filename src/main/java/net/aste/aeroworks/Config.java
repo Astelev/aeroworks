@@ -39,7 +39,7 @@ public class Config {
                 .define("enabled", true);
         WIND_X = BUILDER.comment("Мировая скорость воздуха в блоках/сек. +X = на восток, -X = на запад.")
                 .defineInRange("velocity_x", 8.0, -128.0, 128.0);
-        WIND_Y = BUILDER.comment("Вертикальная скорость воздуха: +Y вверх, -Y вниз.")
+        WIND_Y = BUILDER.comment("Устаревший параметр: в текущей горизонтальной модели не используется.")
                 .defineInRange("velocity_y", 0.0, -128.0, 128.0);
         WIND_Z = BUILDER.comment("Горизонтальная скорость воздуха: +Z на юг, -Z на север.")
                 .defineInRange("velocity_z", 0.0, -128.0, 128.0);
@@ -71,6 +71,52 @@ public class Config {
         ATMOSPHERE_CEILING = BUILDER.comment("Высота полного вакуума. Должна быть выше fade_start_height.")
                 .defineInRange("ceiling_height", 4096.0, -1000000.0, 1000000.0);
         BUILDER.pop();
+    }
+    public static final ModConfigSpec.BooleanValue WIND_DYNAMIC;
+    public static final ModConfigSpec.DoubleValue WIND_ZONE_SIZE;
+    public static final ModConfigSpec.DoubleValue WIND_SURFACE_HEIGHT;
+    public static final ModConfigSpec.DoubleValue WIND_MAXIMUM_HEIGHT;
+    public static final ModConfigSpec.DoubleValue WIND_SURFACE_CLEAR;
+    public static final ModConfigSpec.DoubleValue WIND_SURFACE_RAIN;
+    public static final ModConfigSpec.DoubleValue WIND_SURFACE_STORM;
+    public static final ModConfigSpec.DoubleValue WIND_ALOFT_CLEAR;
+    public static final ModConfigSpec.DoubleValue WIND_ALOFT_RAIN;
+    public static final ModConfigSpec.DoubleValue WIND_ALOFT_STORM;
+    public static final ModConfigSpec.DoubleValue WIND_FALLBACK_PERIOD;
+    public static final ModConfigSpec.DoubleValue WIND_WEATHER_PERIOD_MULTIPLIER;
+    public static final ModConfigSpec.DoubleValue WIND_TRANSITION_SECONDS;
+    public static final ModConfigSpec.DoubleValue WIND_CLOUD_DEVIATION;
+    static {
+        BUILDER.push("wind").push("field");
+        WIND_DYNAMIC = BUILDER.comment("Погодное горизонтальное поле ветра. false = прежние velocity_x/z; velocity_y не используется.")
+                .define("dynamic", true);
+        WIND_ZONE_SIZE = BUILDER.comment("Размер сетки плавных ветровых зон, в блоках.")
+                .defineInRange("zone_size", 512.0, 16.0, 65536.0);
+        WIND_SURFACE_HEIGHT = BUILDER.comment("Мировая Y поверхностного слоя. Не требует поиска поверхности/загрузки чанков.")
+                .defineInRange("surface_height", 64.0, -1000000.0, 1000000.0);
+        WIND_MAXIMUM_HEIGHT = BUILDER.comment("Мировая Y максимального высотного ветра; выше сила от высоты не растёт.")
+                .defineInRange("maximum_height", 250.0, -999999.0, 1000001.0);
+        WIND_SURFACE_CLEAR = BUILDER.comment("Средняя скорость у поверхности в ясную погоду, блоков/сек.")
+                .defineInRange("surface_clear_speed", 2.5, 0.0, 128.0);
+        WIND_SURFACE_RAIN = BUILDER.comment("Средняя скорость у поверхности при дожде.")
+                .defineInRange("surface_rain_speed", 4.0, 0.0, 128.0);
+        WIND_SURFACE_STORM = BUILDER.comment("Средняя скорость у поверхности при сильной грозе.")
+                .defineInRange("surface_storm_speed", 6.0, 0.0, 128.0);
+        WIND_ALOFT_CLEAR = BUILDER.comment("Средняя высотная скорость в ясную погоду.")
+                .defineInRange("aloft_clear_speed", 8.0, 0.0, 128.0);
+        WIND_ALOFT_RAIN = BUILDER.comment("Средняя высотная скорость при дожде.")
+                .defineInRange("aloft_rain_speed", 12.0, 0.0, 128.0);
+        WIND_ALOFT_STORM = BUILDER.comment("Средняя высотная скорость при сильной грозе.")
+                .defineInRange("aloft_storm_speed", 18.0, 0.0, 128.0);
+        WIND_FALLBACK_PERIOD = BUILDER.comment("Период случайных поворотов без расписания Simple Clouds, в секундах.")
+                .defineInRange("fallback_direction_interval_seconds", 360.0, 10.0, 86400.0);
+        WIND_WEATHER_PERIOD_MULTIPLIER = BUILDER.comment("Множитель периода появления массивов Simple Clouds для случайных поворотов ветра.")
+                .defineInRange("weather_direction_interval_multiplier", 1.0, 0.01, 100.0);
+        WIND_TRANSITION_SECONDS = BUILDER.comment("Время плавной реакции на новый облачный массив и погодные данные.")
+                .defineInRange("transition_seconds", 15.0, 0.1, 600.0);
+        WIND_CLOUD_DEVIATION = BUILDER.comment("Случайное отклонение высотного ветра от движения облаков; погодный поворот добавляет до половины этого угла.")
+                .defineInRange("cloud_deviation_degrees", 15.0, 0.0, 45.0);
+        BUILDER.pop().pop();
     }
     static final ModConfigSpec SPEC = BUILDER.build();
 

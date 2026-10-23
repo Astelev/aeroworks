@@ -33,6 +33,9 @@ jobs:
       - name: Verify atmosphere pressure and drag contracts
         run: python3 scripts/check_atmosphere_hooks.py
 
+      - name: Verify Simple Clouds weather wind contracts
+        run: python3 scripts/check_weather_wind_hooks.py
+
       - name: Test cloud fog shader with software OpenGL
         run: |
           sudo apt-get update -qq
