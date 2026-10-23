@@ -5,10 +5,17 @@ import dev.nonamecrackers2.simpleclouds.common.cloud.CloudType;
 import dev.nonamecrackers2.simpleclouds.common.cloud.region.CloudRegion;
 import dev.nonamecrackers2.simpleclouds.common.world.CloudManager;
 import net.minecraft.server.level.ServerLevel;
+import net.aste.aeroworks.cloud.CloudDensity;
+import java.util.IdentityHashMap;
 
 /** Server-only metadata adapter. Never invoked from the physics sampler. */
 final class SimpleCloudsWind {
     private SimpleCloudsWind() {}
+    record Reading(WindWeather weather, double exposure, double minY, double maxY) {}
+    private record Packed(float[] layers, double checked) {}
+    static final class Cache {
+        final IdentityHashMap<Object, Packed> noise = new IdentityHashMap<>();
+    }
 
     static double period(CloudManager<?> manager, WindParameters p) {
         var config = manager.getCloudGenerator().getSpawnConfig().get();
@@ -20,8 +27,8 @@ final class SimpleCloudsWind {
         return Math.max(10, ticks / (20 * rate) * p.weatherPeriodMultiplier());
     }
 
-    static WindWeather read(ServerLevel level, CloudManager<?> manager, double x, double z,
-            long seed, WindParameters p) {
+    static Reading read(ServerLevel level, CloudManager<?> manager, double x, double y, double z,
+            long seed, WindParameters p, Cache cache, double now, boolean sampleDensity) {
         CloudRegion region = null;
         CloudType type;
         double fade;
@@ -68,6 +75,24 @@ final class SimpleCloudsWind {
             // Vanilla weather changes must turn wind even with an unchanged/empty SC cloud type.
             key ^= storm > .5 ? 0x736f726dL : rain > .5 ? 0x7261696eL : 0;
         }
-        return WindWeather.of(key, rain, storm, heading, seed, p.cloudDeviationDegrees());
+        double exposure=0, minY=Double.POSITIVE_INFINITY, maxY=Double.NEGATIVE_INFINITY;
+        if (type!=null && manager.getCloudMode()!=CloudMode.AMBIENT) {
+            var noise=type.noiseConfig();
+            minY=manager.getCloudHeight()+8.0*noise.getStartHeight();
+            maxY=manager.getCloudHeight()+8.0*noise.getEndHeight();
+            // One height-culled density read per scheduled aircraft refresh, never per sail/substep.
+            if (sampleDensity && y>=minY && y<=maxY) {
+                var packed=cache.noise.get(noise);
+                if(packed==null || now-packed.checked()>=10) {
+                    if(cache.noise.size()>=64) cache.noise.clear();
+                    packed=new Packed(noise.packForShader(),now);
+                    cache.noise.put(noise,packed);
+                }
+                float density=CloudDensity.sample(packed.layers(),(float)(x/8),(float)((y-manager.getCloudHeight())/8),
+                        (float)(z/8),manager.getScrollX(1),manager.getScrollY(1),manager.getScrollZ(1),(float)fade);
+                exposure=CloudDensity.strength(density,.15f);
+            }
+        }
+        return new Reading(WindWeather.of(key, rain, storm, heading, seed, p.cloudDeviationDegrees()),exposure,minY,maxY);
     }
 }

@@ -39,7 +39,7 @@ public class Config {
                 .define("enabled", true);
         WIND_X = BUILDER.comment("Мировая скорость воздуха в блоках/сек. +X = на восток, -X = на запад.")
                 .defineInRange("velocity_x", 8.0, -128.0, 128.0);
-        WIND_Y = BUILDER.comment("Устаревший параметр: в текущей горизонтальной модели не используется.")
+        WIND_Y = BUILDER.comment("Устаревший параметр: не используется. Вертикальные потоки настраиваются в wind.vertical.")
                 .defineInRange("velocity_y", 0.0, -128.0, 128.0);
         WIND_Z = BUILDER.comment("Горизонтальная скорость воздуха: +Z на юг, -Z на север.")
                 .defineInRange("velocity_z", 0.0, -128.0, 128.0);
@@ -116,6 +116,74 @@ public class Config {
                 .defineInRange("transition_seconds", 15.0, 0.1, 600.0);
         WIND_CLOUD_DEVIATION = BUILDER.comment("Общее случайное отклонение высотного ветра от движения облаков, в градусах.")
                 .defineInRange("cloud_deviation_degrees", 15.0, 0.0, 45.0);
+        BUILDER.pop().pop();
+    }
+    public static final ModConfigSpec.BooleanValue FLOW_ENABLED;
+    public static final ModConfigSpec.DoubleValue FLOW_DIAMETER;
+    public static final ModConfigSpec.DoubleValue FLOW_SPACING;
+    public static final ModConfigSpec.DoubleValue FLOW_DRIFT;
+    public static final ModConfigSpec.DoubleValue FLOW_PERIOD;
+    public static final ModConfigSpec.DoubleValue FLOW_MIN_HEIGHT;
+    public static final ModConfigSpec.DoubleValue FLOW_RELIEF;
+    public static final ModConfigSpec.DoubleValue FLOW_HEIGHT;
+    public static final ModConfigSpec.DoubleValue FLOW_SPEED;
+    static {
+        BUILDER.push("wind").push("vertical");
+        FLOW_ENABLED = BUILDER.comment("Горные восходящие и нисходящие потоки.")
+                .define("enabled", true);
+        FLOW_DIAMETER = BUILDER.comment("Диаметр потока, блоков.")
+                .defineInRange("diameter", 100.0, 16.0, 512.0);
+        FLOW_SPACING = BUILDER.comment("Шаг поиска горных опорных точек.")
+                .defineInRange("spacing", 128.0, 64.0, 2048.0);
+        FLOW_DRIFT = BUILDER.comment("Радиус медленного смещения центра.")
+                .defineInRange("drift_radius", 15.0, 0.0, 32.0);
+        FLOW_PERIOD = BUILDER.comment("Период изменения положения и силы.")
+                .defineInRange("drift_period_seconds", 120.0, 10.0, 3600.0);
+        FLOW_MIN_HEIGHT = BUILDER.comment("Минимальная высота горной поверхности.")
+                .defineInRange("minimum_mountain_height", 120.0, -64.0, 2048.0);
+        FLOW_RELIEF = BUILDER.comment("Перепад рельефа; горные биомы допускаются и без перепада.")
+                .defineInRange("minimum_relief", 20.0, 0.0, 512.0);
+        FLOW_HEIGHT = BUILDER.comment("Средняя высота потока над поверхностью, меняется на 20%.")
+                .defineInRange("column_height", 500.0, 60.0, 4096.0);
+        FLOW_SPEED = BUILDER.comment("Максимальная вертикальная скорость воздуха, блоков/сек.")
+                .defineInRange("maximum_vertical_speed", 4.0, 0.0, 128.0);
+        BUILDER.pop().pop();
+    }
+    public static final ModConfigSpec.BooleanValue TURB_ENABLED;
+    public static final ModConfigSpec.DoubleValue TURB_CHANCE;
+    public static final ModConfigSpec.DoubleValue TURB_MIN_DISTANCE;
+    public static final ModConfigSpec.DoubleValue TURB_MAX_DISTANCE;
+    public static final ModConfigSpec.DoubleValue TURB_COOLDOWN;
+    public static final ModConfigSpec.DoubleValue TURB_GUST;
+    public static final ModConfigSpec.DoubleValue TURB_TORQUE;
+    public static final ModConfigSpec.DoubleValue TURB_PERIOD;
+    public static final ModConfigSpec.DoubleValue TURB_FADE;
+    public static final ModConfigSpec.DoubleValue STORM_TURN;
+    public static final ModConfigSpec.DoubleValue STORM_TURB;
+    static {
+        BUILDER.push("wind").push("turbulence");
+        TURB_ENABLED = BUILDER.comment("Эпизоды турбулентности отдельных аппаратов в облаках.")
+                .define("enabled", true);
+        TURB_CHANCE = BUILDER.comment("Вероятность начала за 100 блоков пути внутри плотного облака.")
+                .defineInRange("chance_per_100_blocks", 0.3, 0.0, 0.999);
+        TURB_MIN_DISTANCE = BUILDER.comment("Минимальная длина эпизода по пройденному пути.")
+                .defineInRange("minimum_distance", 100.0, 1.0, 100000.0);
+        TURB_MAX_DISTANCE = BUILDER.comment("Максимальная длина эпизода, не ниже minimum_distance.")
+                .defineInRange("maximum_distance", 300.0, 1.0, 100000.0);
+        TURB_COOLDOWN = BUILDER.comment("Путь без новых эпизодов после завершения.")
+                .defineInRange("cooldown_distance", 150.0, 0.0, 100000.0);
+        TURB_GUST = BUILDER.comment("Максимальная добавочная скорость порыва.")
+                .defineInRange("gust_speed", 3.5, 0.0, 128.0);
+        TURB_TORQUE = BUILDER.comment("Вращающий момент на одну аэродинамическую поверхность; масштабируется давлением.")
+                .defineInRange("rocking_torque_per_sail", 0.15, 0.0, 10000.0);
+        TURB_PERIOD = BUILDER.comment("Интервал резкого плавного изменения направления порыва.")
+                .defineInRange("gust_period_seconds", 0.4, 0.05, 30.0);
+        TURB_FADE = BUILDER.comment("Путь плавного входа и выхода из эпизода.")
+                .defineInRange("fade_distance", 10.0, 0.1, 10000.0);
+        STORM_TURN = BUILDER.comment("Во сколько раз чаще случайные повороты ветра в полной грозе.")
+                .defineInRange("storm_direction_multiplier", 3.0, 1.0, 20.0);
+        STORM_TURB = BUILDER.comment("Множитель вероятности турбулентности в грозу.")
+                .defineInRange("storm_chance_multiplier", 2.0, 1.0, 20.0);
         BUILDER.pop().pop();
     }
     static final ModConfigSpec SPEC = BUILDER.build();

@@ -3,7 +3,7 @@ package net.aste.aeroworks.wind;
 /** Seeded, continuous space/time field. No world access, noise, zone objects or per-sample allocations. */
 public final class ZonalWindModel {
     private ZonalWindModel() {}
-    public static final class Result { public double x, z; }
+    public static final class Result { public double x, y, z, torqueX, torqueY, torqueZ; }
 
     public static void sample(WindParameters p, long seed, double phase, double x, double y, double z,
             WindWeatherBlend weather, double time, Result out) {
