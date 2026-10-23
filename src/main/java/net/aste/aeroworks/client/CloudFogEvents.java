@@ -7,6 +7,7 @@ import dev.nonamecrackers2.simpleclouds.common.world.CloudManager;
 import net.aste.aeroworks.Aeroworks;
 import net.aste.aeroworks.cloud.CloudDensity;
 import net.minecraft.client.Camera;
+import com.mojang.blaze3d.shaders.FogShape;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.level.material.FogType;
@@ -81,15 +82,22 @@ public final class CloudFogEvents {
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void color(ViewportEvent.ComputeFogColor event) {
-        update(event.getCamera(), (float) event.getPartialTick());
+        float amount = update(event.getCamera(), (float) event.getPartialTick());
+        if (amount <= 0) return;
+        float[] cloud = SimpleCloudsRenderer.getInstance().getCloudColor((float) event.getPartialTick());
+        event.setRed(event.getRed() + (cloud[0] - event.getRed()) * amount);
+        event.setGreen(event.getGreen() + (cloud[1] - event.getGreen()) * amount);
+        event.setBlue(event.getBlue() + (cloud[2] - event.getBlue()) * amount);
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void afterWorld(net.neoforged.neoforge.client.event.RenderLevelStageEvent event) {
-        if (event.getStage() == net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage.AFTER_LEVEL) {
-            float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(true);
-            update(event.getCamera(), partialTick);
-            CloudFogPostProcess.render(event.getProjectionMatrix(), partialTick);
-        }
+    @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)
+    public static void fog(ViewportEvent.RenderFog event) {
+        float amount = update(event.getCamera(), (float) event.getPartialTick());
+        if (amount <= 0) return;
+        float far = CloudFogConfig.VISIBILITY.get().floatValue() / Math.max(amount, .001f);
+        event.setFarPlaneDistance(Math.min(event.getFarPlaneDistance(), far));
+        event.setNearPlaneDistance(Math.min(event.getNearPlaneDistance(), far * .1f));
+        event.setFogShape(FogShape.SPHERE);
+        event.setCanceled(true);
     }
 }

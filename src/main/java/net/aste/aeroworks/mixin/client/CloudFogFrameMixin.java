@@ -14,6 +14,14 @@ public abstract class CloudFogFrameMixin {
         CloudFogPostProcess.beginFrame();
     }
 
+    // AFTER_LEVEL can be dispatched before other mods finish their tail injections.
+    @Inject(method = "renderLevel", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/client/renderer/LevelRenderer;renderLevel(Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/Camera;Lnet/minecraft/client/renderer/GameRenderer;Lnet/minecraft/client/renderer/LightTexture;Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;)V",
+            shift = At.Shift.AFTER))
+    private void aste_aeroworks$finishWorld(CallbackInfo ci) {
+        CloudFogPostProcess.finishWorld();
+    }
+
     @Inject(method = "close", at = @At("HEAD"))
     private void aste_aeroworks$closeCloudFog(CallbackInfo ci) {
         CloudFogPostProcess.close();

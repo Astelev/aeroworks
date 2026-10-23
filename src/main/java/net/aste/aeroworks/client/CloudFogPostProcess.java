@@ -21,6 +21,16 @@ public final class CloudFogPostProcess {
     private static int dhDepth = -1;
     private static final Matrix4f inverseDhProjection = new Matrix4f();
     private static boolean failed;
+    private static final Matrix4f worldProjection = new Matrix4f();
+    private static float framePartialTick;
+    public static void captureProjection(Matrix4f projection, float partialTick) {
+        worldProjection.set(projection);
+        framePartialTick = partialTick;
+    }
+    public static void finishWorld() {
+        CloudFogEvents.update(Minecraft.getInstance().gameRenderer.getMainCamera(), framePartialTick);
+        render(worldProjection, framePartialTick);
+    }
 
     private CloudFogPostProcess() {}
 
@@ -44,7 +54,7 @@ public final class CloudFogPostProcess {
 
     public static void render(Matrix4f projection, float partialTick) {
         float amount = CloudFogEvents.strength();
-        if (amount <= 0 || failed) return;
+        if ((amount <= 0 && dhDepth < 0) || failed) return;
         Minecraft mc = Minecraft.getInstance();
         var main = mc.getMainRenderTarget();
         try {
@@ -66,12 +76,18 @@ public final class CloudFogPostProcess {
             return;
         }
 
+        var renderer = SimpleCloudsRenderer.getOptionalInstance().orElse(null);
+        if (renderer == null) return;
         float[] color = SimpleCloudsRenderer.getInstance().getCloudColor(partialTick);
         Matrix4f inverseProjection = new Matrix4f(projection).invert();
         int depthTexture = dhDepth >= 0 ? dhDepth : main.getDepthTextureId();
         for (var pass : ((PostChainAccessor) chain).aste_aeroworks$passes()) {
             var effect = pass.getEffect();
             effect.setSampler("DhDepthSampler", () -> depthTexture);
+            effect.setSampler("CloudsSampler", () -> renderer.getCloudTarget().getColorTextureId());
+            effect.setSampler("AccumSampler", () -> renderer.getCloudTransparencyTarget().getColorTextureId());
+            effect.setSampler("RevealSampler", () -> renderer.getCloudTransparencyTarget().getRevealageTextureId());
+            effect.safeGetUniform("HasTransparency").set(renderer.getMeshGenerator().transparencyEnabled() ? 1 : 0);
             effect.safeGetUniform("InverseProjection").set(inverseProjection);
             effect.safeGetUniform("InverseDhProjection").set(inverseDhProjection);
             effect.safeGetUniform("HasDhDepth").set(dhDepth >= 0 ? 1 : 0);
