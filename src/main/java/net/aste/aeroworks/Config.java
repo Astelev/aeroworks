@@ -49,6 +49,29 @@ public class Config {
                 .defineInRange("sail_pressure_coefficient", 1.0, 0.0, 10.0);
         BUILDER.pop();
     }
+    public static final ModConfigSpec.BooleanValue ATMOSPHERE_ENABLED;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> ATMOSPHERE_DIMENSIONS;
+    public static final ModConfigSpec.DoubleValue ATMOSPHERE_REFERENCE_HEIGHT;
+    public static final ModConfigSpec.DoubleValue ATMOSPHERE_SCALE_HEIGHT;
+    public static final ModConfigSpec.DoubleValue ATMOSPHERE_FADE_START;
+    public static final ModConfigSpec.DoubleValue ATMOSPHERE_CEILING;
+    static {
+        BUILDER.push("atmosphere");
+        ATMOSPHERE_ENABLED = BUILDER.comment("Заменить высотную кривую давления Sable; совместимо с Lift Patch.")
+                .define("enabled", true);
+        ATMOSPHERE_DIMENSIONS = BUILDER.comment("Измерения с новой атмосферой. Остальные сохраняют исходную кривую Sable.")
+                .defineListAllowEmpty("dimensions", List.of("minecraft:overworld"), () -> "minecraft:overworld",
+                        value -> value instanceof String id && ResourceLocation.tryParse(id) != null);
+        ATMOSPHERE_REFERENCE_HEIGHT = BUILDER.comment("Мировая высота Y с относительной плотностью 1.")
+                .defineInRange("reference_height", 64.0, -1000000.0, 1000000.0);
+        ATMOSPHERE_SCALE_HEIGHT = BUILDER.comment("Высота подъёма, за которую плотность уменьшается в e раз. Больше = медленнее разрежение.")
+                .defineInRange("scale_height", 1024.0, 1.0, 1000000.0);
+        ATMOSPHERE_FADE_START = BUILDER.comment("Начало дополнительного плавного перехода к вакууму. Не ниже reference_height.")
+                .defineInRange("fade_start_height", 3072.0, -1000000.0, 1000000.0);
+        ATMOSPHERE_CEILING = BUILDER.comment("Высота полного вакуума. Должна быть выше fade_start_height.")
+                .defineInRange("ceiling_height", 4096.0, -1000000.0, 1000000.0);
+        BUILDER.pop();
+    }
     static final ModConfigSpec SPEC = BUILDER.build();
 
     private static boolean validateItemName(final Object obj) {

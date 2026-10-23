@@ -237,3 +237,12 @@ tasks.named('check') { dependsOn testWind }
 // Reuse the same dependency versions as main without launching a game/server.
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.main.compileClasspath
+
+
+def testAtmosphere = tasks.register('testAtmosphere', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.AtmosphereTest'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testAtmosphere }
