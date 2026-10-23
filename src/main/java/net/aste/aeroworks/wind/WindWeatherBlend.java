@@ -3,7 +3,11 @@ package net.aste.aeroworks.wind;
 /** Immutable transition, published to physics; retargeting preserves the current weather value. */
 public record WindWeatherBlend(WindWeather from, WindWeather to, double started, double duration) {
     public static final WindWeatherBlend CLEAR = new WindWeatherBlend(WindWeather.CLEAR, WindWeather.CLEAR, 0, 1);
-    public double fraction(double time) { return ZonalWindModel.smooth((time - started) / duration); }
+    public double fraction(double time) {
+        // Exponential response composes across retargets. Restarted smoothstep
+        // would become ~80 seconds of lag when a 15-second target drifts every second.
+        return -Math.expm1(-3 * Math.max(0, time - started) / duration);
+    }
     public double rain(double t) { return mix(from.rain(), to.rain(), t); }
     public double storm(double t) { return mix(from.storm(), to.storm(), t); }
     public double heading(double t) { return ZonalWindModel.angleMix(from.cloudHeading(), to.cloudHeading(), t); }

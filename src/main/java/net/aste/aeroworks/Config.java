@@ -112,9 +112,9 @@ public class Config {
                 .defineInRange("fallback_direction_interval_seconds", 360.0, 10.0, 86400.0);
         WIND_WEATHER_PERIOD_MULTIPLIER = BUILDER.comment("Множитель периода появления массивов Simple Clouds для случайных поворотов ветра.")
                 .defineInRange("weather_direction_interval_multiplier", 1.0, 0.01, 100.0);
-        WIND_TRANSITION_SECONDS = BUILDER.comment("Время плавной реакции на новый облачный массив и погодные данные.")
+        WIND_TRANSITION_SECONDS = BUILDER.comment("Время примерно 95% плавной реакции на новый облачный массив и погодные данные.")
                 .defineInRange("transition_seconds", 15.0, 0.1, 600.0);
-        WIND_CLOUD_DEVIATION = BUILDER.comment("Случайное отклонение высотного ветра от движения облаков; погодный поворот добавляет до половины этого угла.")
+        WIND_CLOUD_DEVIATION = BUILDER.comment("Общее случайное отклонение высотного ветра от движения облаков, в градусах.")
                 .defineInRange("cloud_deviation_degrees", 15.0, 0.0, 45.0);
         BUILDER.pop().pop();
     }

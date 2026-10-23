@@ -10,8 +10,8 @@ public final class ZonalWindTest {
     public static void main(String[] args) {
         surfaceRange(); weatherSpeed(); altitude(); cloudAlignment(); zones(); spatialContinuity();
         temporalContinuity(); weatherRetarget(); typeChange(); randomTurns(); deterministic(); invalidConfig();
-        antipodalContinuity();
-        System.out.println("Zonal wind: 13 field/weather/continuity checks passed");
+        antipodalContinuity(); weatherFrameIndependence();
+        System.out.println("Zonal wind: 14 field/weather/continuity checks passed");
     }
     private static ZonalWindModel.Result at(double x, double y, double z, double phase, WindWeatherBlend weather, double time) {
         var result = new ZonalWindModel.Result();
@@ -49,7 +49,8 @@ public final class ZonalWindTest {
     private static void cloudAlignment() {
         double heading=-1.2;
         for(int i=0;i<200;i++) {
-            var v=at(i*17,250,-i*29,i*.03,steady(0,0,heading),10);
+            var target=WindWeather.of(i+1,0,0,heading,1234,P.cloudDeviationDegrees());
+            var v=at(i*17,250,-i*29,i*.03,new WindWeatherBlend(target,target,0,1),10);
             double error=Math.abs(Math.IEEEremainder(Math.atan2(v.z,v.x)-heading,2*Math.PI));
             require(error <= Math.toRadians(P.cloudDeviationDegrees())+1e-9,"Upper wind agrees with cloud motion");
         }
@@ -79,7 +80,7 @@ public final class ZonalWindTest {
         near(at(20,140,50,.4,WindWeatherBlend.CLEAR,10),at(20,140,50,.4,first,10),1e-10,"New front starts at previous wind");
         var second=first.retarget(WindWeather.of(55,0,0,-1.3,1234,15),14,15);
         near(at(20,140,50,.4,first,14),at(20,140,50,.4,second,14),1e-10,"Interrupted transition preserves current wind");
-        require(second.current(100).rain()==0,"Transition eventually reaches clear weather");
+        require(second.current(100).rain()<1e-7,"Transition eventually reaches clear weather");
     }
     private static void typeChange() {
         var a=WindWeather.of(ZonalWindModel.typeKey("sc:cumulus"),0,0,.4,1234,15);
@@ -111,6 +112,19 @@ public final class ZonalWindTest {
         var a=at(42,150,99,phase,steady(0,0,Math.PI-1e-8),10);
         var b=at(42,150,99,phase,steady(0,0,Math.PI+1e-8),10);
         near(a,b,1e-6,"Continuous unwrapped layer interpolation");
+    }
+    private static void weatherFrameIndependence() {
+        var target=WindWeather.of(77,1,1,.2,1234,15);
+        var once=WindWeatherBlend.CLEAR.retarget(target,0,15);
+        var many=once;
+        for(int second=1;second<=15;second++) {
+            // Moving clouds keep changing heading while their rain/storm remain constant.
+            var drifting=new WindWeather(77,1,1,.2+second*.001,target.surfaceTurn(),target.aloftTurn());
+            many=many.retarget(drifting,second,15);
+        }
+        require(Math.abs(once.current(15).rain()-many.current(15).rain())<1e-10,
+                "Repeated heading updates must not slow rain/storm transitions");
+        require(many.current(15).rain()>.95,"About 95% response within configured transition time");
     }
     private static double speed(ZonalWindModel.Result v){return Math.hypot(v.x,v.z);}
     private static double distance(ZonalWindModel.Result a,ZonalWindModel.Result b){return Math.hypot(a.x-b.x,a.z-b.z);}

@@ -14,7 +14,7 @@ public final class ZonalWindModel {
         double gx = x / p.zoneSize(), gz = z / p.zoneSize();
         double surfaceAngle = grid(seed, gx, gz, phase) * Math.PI * 2 + weather.surfaceTurn(t);
         double upperAngle = weather.heading(t) + weather.aloftTurn(t)
-                + (grid(seed ^ 0xaabbcd133L, gx, gz, phase) * 2 - 1) * Math.toRadians(p.cloudDeviationDegrees());
+                + (grid(seed ^ 0xaabbcd133L, gx, gz, phase) * 2 - 1) * Math.toRadians(p.cloudDeviationDegrees()) * .5;
         double height = smooth((y - p.surfaceHeight()) / (p.maximumHeight() - p.surfaceHeight()));
         // Interpolate heading and magnitude separately; opposing layers do not cancel into calm air.
         // These headings are continuous/unwrapped; choosing a shortest arc here
