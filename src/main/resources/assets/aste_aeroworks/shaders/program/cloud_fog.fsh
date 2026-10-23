@@ -44,5 +44,7 @@ void main() {
         distance = min(distance, dhDistance);
     }
     float alpha = smoothstep(Visibility * 0.1, Visibility, distance) * Strength;
-    fragColor = vec4(mix(original.rgb, FogColor, alpha), original.a);
+    // Main-target alpha is not scene visibility. Sky/DH can contain RGB with
+    // alpha=0; the completed world must be presented as an opaque image.
+    fragColor = vec4(mix(original.rgb, FogColor, alpha), 1.0);
 }

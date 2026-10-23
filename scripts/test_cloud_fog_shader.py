@@ -153,7 +153,7 @@ def render(main, dh, amount, expected_alpha, label):
     draw(4, 0, 3)
     pixels = (F * 4)()
     read(0, 0, 1, 1, 0x1908, 0x1406, pixels)
-    expected = [a + (b - a) * expected_alpha for a, b in zip(original[:3], fog)] + [original[3]]
+    expected = [a + (b - a) * expected_alpha for a, b in zip(original[:3], fog)] + [1.0]
     assert max(abs(a-b) for a,b in zip(pixels, expected)) < .0001, (label, list(pixels), expected)
     assert error() == 0, label
 
@@ -179,13 +179,80 @@ def check_cloud(main, dh, expected, label):
     pixels=(F*4)()
     read(0,0,1,1,0x1908,0x1406,pixels)
     assert max(abs(a-b) for a,b in zip(pixels,expected)) < .0001, (label,list(pixels))
-check_cloud(1000,100,(.7,.6,.5,.8),'cloud covers later Sodium terrain')
-check_cloud(10,100,original,'near terrain occludes clouds')
+check_cloud(1000,100,(.7,.6,.5,1),'cloud covers later Sodium terrain')
+check_cloud(10,100,(*original[:3],1),'near terrain occludes clouds')
 u1i(location(program,b'HasTransparency'),1)
 active_tex(0x84C0+5)
 bind_tex(0x0DE1,accum_texture)
 tex_image(0x0DE1,0,0x8814,1,1,0,0x1908,0x1406,(F*4)(.2,.4,.6,1))
 upload(6,reveal_texture,.5)
-check_cloud(1000,100,(.45,.5,.55,.8),'weighted transparent cloud layer')
-check_cloud(10,100,original,'near terrain also occludes transparent clouds')
-print('Cloud fog GLSL: 13 software OpenGL render checks passed')
+check_cloud(1000,100,(.45,.5,.55,1),'weighted transparent cloud layer')
+check_cloud(10,100,(*original[:3],1),'near terrain also occludes transparent clouds')
+# Exercise BOTH post passes, including the JSON blend state and clearing the
+# destination like PostPass.process. Shader-only tests missed alpha-zero sky/DH.
+import json
+resource_root = root / 'src/main/resources/assets/aste_aeroworks/shaders'
+post = json.loads((resource_root / 'post/cloud_fog.json').read_text())
+copy_name = post['passes'][1]['name'].split(':')[-1]
+assert copy_name == 'cloud_fog_copy', 'Vanilla blit alpha-blends into a cleared target'
+copy_config = json.loads((resource_root / ('program/' + copy_name + '.json')).read_text())
+copy_fragment = (resource_root / ('program/' + copy_config['fragment'].split(':')[-1] + '.fsh')).read_text()
+copy_program = create_program()
+attach(copy_program, shader(0x8B31, vertex))
+attach(copy_program, shader(0x8B30, copy_fragment))
+link(copy_program)
+program_iv(copy_program, 0x8B82, C.byref(ok))
+assert ok.value, 'copy program link failed'
+final_texture = texture(7, [0,0,0,0])
+final_fbo = U()
+gen_fbo(1, C.byref(final_fbo))
+bind_fbo(0x8D40, final_fbo)
+fbo_tex(0x8D40, 0x8CE0, 0x0DE1, final_texture, 0)
+assert check_fbo(0x8D40) == 0x8CD5
+enable = bind(gl,'glEnable',None,U)
+disable = bind(gl,'glDisable',None,U)
+blend_func = bind(gl,'glBlendFunc',None,U,U)
+clear_color = bind(gl,'glClearColor',None,F,F,F,F)
+clear = bind(gl,'glClear',None,U)
+factors={'one':1,'zero':0,'srcalpha':0x0302,'1-srcalpha':0x0303}
+
+def full_chain(source_alpha, amount, has_dh, label):
+    use(program)
+    disable(0x0BE2)
+    bind_fbo(0x8D40,fbo)
+    active_tex(0x84C0)
+    bind_tex(0x0DE1,color_texture)
+    tex_image(0x0DE1,0,0x8814,1,1,0,0x1908,0x1406,(F*4)(*original[:3],source_alpha))
+    # Cloud buffers must not replace sky/LOD pixels without actual cloud color.
+    active_tex(0x84C0+4)
+    bind_tex(0x0DE1,cloud_texture)
+    tex_image(0x0DE1,0,0x8814,1,1,0,0x1908,0x1406,(F*4)(0,0,0,0))
+    upload(1,main_texture,1)
+    upload(2,dh_texture,depth(200,16,65536) if has_dh else 1)
+    u1i(location(program,b'HasDhDepth'),has_dh)
+    u1i(location(program,b'HasTransparency'),0)
+    u1f(location(program,b'Strength'),amount)
+    draw(4,0,3)
+    bind_fbo(0x8D40,final_fbo)
+    clear_color(0,0,0,0)
+    clear(0x00004000)
+    use(copy_program)
+    active_tex(0x84C0+3)
+    bind_tex(0x0DE1,out_texture)
+    u1i(location(copy_program,b'DiffuseSampler'),3)
+    enable(0x0BE2)
+    blend_func(factors[copy_config['blend']['srcrgb']],factors[copy_config['blend']['dstrgb']])
+    draw(4,0,3)
+    result=(F*4)()
+    read(0,0,1,1,0x1908,0x1406,result)
+    expected=[a+(b-a)*amount for a,b in zip(original[:3],fog)]+[1]
+    assert max(abs(a-b) for a,b in zip(result,expected))<.0001,(label,list(result),expected)
+    assert error()==0,label
+
+full_chain(0,0,0,'alpha-zero sky survives both passes outside clouds')
+full_chain(0,0,1,'alpha-zero DH RGB survives both passes outside clouds')
+full_chain(.2,0,1,'partial scene alpha does not dim RGB')
+full_chain(1,0,0,'opaque chunks retain brightness')
+full_chain(0,1,1,'dense fog covers alpha-zero DH')
+full_chain(0,.25,1,'weak fog preserves alpha-zero scene brightness')
+print('Cloud fog GLSL: 19 software OpenGL checks passed (including 6 full-chain checks)')
