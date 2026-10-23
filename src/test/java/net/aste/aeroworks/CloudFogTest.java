@@ -1,6 +1,9 @@
 package net.aste.aeroworks;
 
 import net.aste.aeroworks.cloud.CloudDensity;
+import net.aste.aeroworks.cloud.FrameEffectQueue;
+import java.util.ArrayList;
+import java.util.List;
 import net.aste.aeroworks.cloud.PsrdNoise;
 
 /** Headless regressions for occupancy, animation and fog composition. */
@@ -15,7 +18,11 @@ public final class CloudFogTest {
         sensitivity();
         earlierEdge();
         grayColor();
-        System.out.println("Cloud fog: 9 regression checks passed");
+        deferredLayerOrder();
+        oncePerFrame();
+        abandonedFrame();
+        failedFogStillDrawsEffects();
+        System.out.println("Cloud fog: 13 regression checks passed");
     }
 
     private static float[] layer(float offset, float height, float density, float noiseScale) {
@@ -91,6 +98,50 @@ public final class CloudFogTest {
         near(.65f, CloudDensity.gray(1,1,1,1,.9f,.65f), .00001f, "Darker dense fog");
         require(CloudDensity.gray(1,1,1,.8f,.9f,.65f) < CloudDensity.gray(1,1,1,.2f,.9f,.65f), "More fog shades gray darker");
         near(.13f, CloudDensity.gray(.2f,.2f,.2f,1,.9f,.65f), .00001f, "Night lighting retained");
+    }
+    private static void deferredLayerOrder() {
+        var queue = new FrameEffectQueue();
+        var draws = new ArrayList<String>();
+        queue.begin();
+        draws.add("opaque terrain");
+        queue.submit(true, () -> draws.add("solid particles"));
+        draws.add("late terrain and sublevels");
+        queue.submit(true, () -> draws.add("translucent particles"));
+        queue.submit(true, () -> draws.add("rain and snow"));
+        queue.finish(() -> draws.add("completed world fog"));
+        require(draws.equals(List.of("opaque terrain", "late terrain and sublevels", "completed world fog",
+                "solid particles", "translucent particles", "rain and snow")), "Fog must include late terrain and precede all effects");
+    }
+    private static void oncePerFrame() {
+        var queue = new FrameEffectQueue();
+        int[] draws = new int[3];
+        queue.begin();
+        queue.submit(false, () -> draws[0]++);
+        queue.submit(true, () -> draws[1]++);
+        queue.finish(() -> draws[2]++);
+        queue.finish(() -> draws[2]++);
+        require(draws[0] == 1 && draws[1] == 1 && draws[2] == 1, "No missing or duplicated draws");
+        queue.submit(true, () -> draws[1]++);
+        require(draws[1] == 2, "An effect submitted after the flush still draws immediately");
+    }
+    private static void abandonedFrame() {
+        var queue = new FrameEffectQueue();
+        int[] draws = new int[1];
+        queue.begin();
+        queue.submit(true, () -> draws[0]++);
+        queue.begin();
+        queue.submit(true, () -> draws[0] += 10);
+        queue.finish(() -> {});
+        require(draws[0] == 10, "Abandoned frame cannot replay stale camera effects");
+    }
+    private static void failedFogStillDrawsEffects() {
+        var queue = new FrameEffectQueue();
+        int[] draws = new int[1];
+        queue.begin();
+        queue.submit(true, () -> draws[0]++);
+        try { queue.finish(() -> { throw new IllegalStateException("test"); }); }
+        catch (IllegalStateException expected) { }
+        require(draws[0] == 1, "Effects still flush if world fog fails");
     }
     private static void near(float expected, float actual, float tolerance, String message) {
         require(Float.isFinite(actual) && Math.abs(expected - actual) <= tolerance, message + ": " + actual);

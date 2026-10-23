@@ -21,7 +21,12 @@ for path in artifacts:
                             capture_output=True, text=True, check=True)
     count = result.stdout.count(needle)
     if count:
-        print(f'Particle fog hook: {count} invocation sites verified in {path.name}')
+        weather = 'renderSnowAndRain:(Lnet/minecraft/client/renderer/LightTexture;FDDD)V'
+        weather_count = result.stdout.count(weather)
+        assert weather_count >= 2, 'Both weather invocation sites must exist'
+        assert 'CloudFogPostProcess.finishWorld()' not in source, 'Fog must not execute before queued effects'
+        assert 'CloudFogPostProcess.drawEffect(' in source, 'Effect calls must be queued'
+        print(f'Late fog hooks: {count} particle and {weather_count} weather invocation sites verified in {path.name}')
         break
 else:
     raise AssertionError('ParticleEngine invocation does not match mixin target in mapped NeoForge bytecode')

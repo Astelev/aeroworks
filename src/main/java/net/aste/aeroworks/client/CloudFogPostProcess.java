@@ -3,6 +3,7 @@ package net.aste.aeroworks.client;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.nonamecrackers2.simpleclouds.client.renderer.SimpleCloudsRenderer;
 import net.aste.aeroworks.Aeroworks;
+import net.aste.aeroworks.cloud.FrameEffectQueue;
 import net.aste.aeroworks.mixin.client.PostChainAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.PostChain;
@@ -15,14 +16,14 @@ import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL30;
 import java.io.IOException;
 
-/** Composites terrain/cloud fog before particles and weather; late hook is fallback only. */
+/** Fog the completed world, then replay queued particles/weather with their original camera. */
 public final class CloudFogPostProcess {
     private static PostChain chain;
     private static int width, height;
     private static int dhDepth = -1;
     private static final Matrix4f inverseDhProjection = new Matrix4f();
     private static boolean failed;
-    private static boolean worldPassComplete;
+    private static final FrameEffectQueue effects = new FrameEffectQueue();
     private static final Matrix4f worldProjection = new Matrix4f();
     private static float framePartialTick;
     public static void captureProjection(Matrix4f projection, float partialTick) {
@@ -30,15 +31,24 @@ public final class CloudFogPostProcess {
         framePartialTick = partialTick;
     }
     public static void finishWorld() {
-        if (worldPassComplete) return;
-        CloudFogEvents.update(Minecraft.getInstance().gameRenderer.getMainCamera(), framePartialTick);
-        render(worldProjection, framePartialTick);
-        worldPassComplete = true;
+        effects.finish(() -> {
+            CloudFogEvents.update(Minecraft.getInstance().gameRenderer.getMainCamera(), framePartialTick);
+            render(worldProjection, framePartialTick);
+        });
+    }
+
+    public static void drawEffect(Runnable draw) {
+        if (dhDepth >= 0 || CloudFogEvents.strength() > 0) {
+            var state = new DeferredEffectState();
+            effects.submit(true, () -> state.draw(draw));
+        } else {
+            effects.submit(false, draw);
+        }
     }
 
     private CloudFogPostProcess() {}
 
-    public static void beginFrame() { dhDepth = -1; worldPassComplete = false; }
+    public static void beginFrame() { dhDepth = -1; effects.begin(); }
 
     public static void captureDhDepth(int depthTexture, Matrix4f projection) {
         dhDepth = depthTexture;
@@ -52,6 +62,7 @@ public final class CloudFogPostProcess {
     public static void close() {
         if (chain != null) chain.close();
         chain = null;
+        effects.begin();
         failed = false;
         dhDepth = -1;
     }
