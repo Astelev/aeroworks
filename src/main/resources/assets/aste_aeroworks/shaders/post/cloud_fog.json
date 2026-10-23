@@ -1,0 +1,23 @@
+{
+  "targets": [
+    "cloud_fog_out"
+  ],
+  "passes": [
+    {
+      "name": "aste_aeroworks:cloud_fog",
+      "intarget": "minecraft:main",
+      "outtarget": "cloud_fog_out",
+      "auxtargets": [
+        {
+          "name": "MainDepthSampler",
+          "id": "minecraft:main:depth"
+        }
+      ]
+    },
+    {
+      "name": "aste_aeroworks:cloud_fog_copy",
+      "intarget": "cloud_fog_out",
+      "outtarget": "minecraft:main"
+    }
+  ]
+}
