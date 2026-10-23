@@ -78,7 +78,7 @@ public final class CloudFogPostProcess {
 
         var renderer = SimpleCloudsRenderer.getOptionalInstance().orElse(null);
         if (renderer == null) return;
-        float[] color = SimpleCloudsRenderer.getInstance().getCloudColor(partialTick);
+        float gray = CloudFogEvents.gray(partialTick, amount);
         Matrix4f inverseProjection = new Matrix4f(projection).invert();
         int depthTexture = dhDepth >= 0 ? dhDepth : main.getDepthTextureId();
         for (var pass : ((PostChainAccessor) chain).aste_aeroworks$passes()) {
@@ -93,7 +93,7 @@ public final class CloudFogPostProcess {
             effect.safeGetUniform("HasDhDepth").set(dhDepth >= 0 ? 1 : 0);
             effect.safeGetUniform("Visibility").set(CloudFogConfig.VISIBILITY.get().floatValue());
             effect.safeGetUniform("Strength").set(amount);
-            effect.safeGetUniform("FogColor").set(color[0], color[1], color[2]);
+            effect.safeGetUniform("FogColor").set(gray, gray, gray);
         }
 
         // PostPass changes GL state and projection. Restore it before rendering the hand/GUI.

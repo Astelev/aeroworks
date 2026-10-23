@@ -31,6 +31,13 @@ public final class CloudFogEvents {
         return Minecraft.getInstance().level == lastLevel ? strength : 0;
     }
 
+    static float gray(float partialTick, float amount) {
+        float[] cloud = SimpleCloudsRenderer.getInstance().getCloudColor(partialTick);
+        return CloudDensity.gray(cloud[0], cloud[1], cloud[2], amount,
+                CloudFogConfig.EDGE_FOG_BRIGHTNESS.get().floatValue(),
+                CloudFogConfig.DENSE_FOG_BRIGHTNESS.get().floatValue());
+    }
+
     static float update(Camera camera, float partialTick) {
         var level = Minecraft.getInstance().level;
         if (level == null || !CloudFogConfig.ENABLED.get() || camera.getFluidInCamera() != FogType.NONE
@@ -55,8 +62,9 @@ public final class CloudFogEvents {
             float density = CloudDensity.sample(layers, (float) (pos.x / 8),
                     (float) ((pos.y - manager.getCloudHeight()) / 8), (float) (pos.z / 8),
                     manager.getScrollX(partialTick), manager.getScrollY(partialTick), manager.getScrollZ(partialTick), info.getRight());
-            target = CloudDensity.strength(density + CloudFogConfig.DENSITY_OFFSET.get().floatValue(),
-                    CloudFogConfig.BOUNDARY_WIDTH.get().floatValue());
+            target = CloudDensity.edgeStrength(density + CloudFogConfig.DENSITY_OFFSET.get().floatValue(),
+                    CloudFogConfig.BOUNDARY_WIDTH.get().floatValue(),
+                    CloudFogConfig.EDGE_DENSITY_MARGIN.get().floatValue());
         }
         boolean reset = level != lastLevel || lastPos == null || pos.distanceToSqr(lastPos) > 128 * 128 || time < lastTime;
         strength = reset ? target : CloudDensity.smooth(strength, target, time - lastTime, CloudFogConfig.TRANSITION_TICKS.get());
@@ -84,10 +92,10 @@ public final class CloudFogEvents {
     public static void color(ViewportEvent.ComputeFogColor event) {
         float amount = update(event.getCamera(), (float) event.getPartialTick());
         if (amount <= 0) return;
-        float[] cloud = SimpleCloudsRenderer.getInstance().getCloudColor((float) event.getPartialTick());
-        event.setRed(event.getRed() + (cloud[0] - event.getRed()) * amount);
-        event.setGreen(event.getGreen() + (cloud[1] - event.getGreen()) * amount);
-        event.setBlue(event.getBlue() + (cloud[2] - event.getBlue()) * amount);
+        float gray = gray((float) event.getPartialTick(), amount);
+        event.setRed(event.getRed() + (gray - event.getRed()) * amount);
+        event.setGreen(event.getGreen() + (gray - event.getGreen()) * amount);
+        event.setBlue(event.getBlue() + (gray - event.getBlue()) * amount);
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)

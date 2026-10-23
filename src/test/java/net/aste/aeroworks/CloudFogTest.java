@@ -13,7 +13,9 @@ public final class CloudFogTest {
         animationAndScroll();
         frameIndependentTransitions();
         sensitivity();
-        System.out.println("Cloud fog: 7 regression checks passed");
+        earlierEdge();
+        grayColor();
+        System.out.println("Cloud fog: 9 regression checks passed");
     }
 
     private static float[] layer(float offset, float height, float density, float noiseScale) {
@@ -75,6 +77,20 @@ public final class CloudFogTest {
         near(0, CloudDensity.strength(-.05f, .1f), 0, "Default threshold keeps a clear cloud fringe");
         near(.5f, CloudDensity.strength(-.05f + .1f, .1f), .0001f, "Density offset activates the cloud fringe");
         require(CloudDensity.strength(.03f, .05f) > CloudDensity.strength(.03f, .15f), "Smaller boundary width responds earlier");
+    }
+    private static void earlierEdge() {
+        near(0, CloudDensity.edgeStrength(-.15f, .15f, .15f), 0, "Outside expanded edge");
+        require(CloudDensity.edgeStrength(-.075f, .15f, .15f) > 0, "Fog starts in thin cloud fringe");
+        near(1, CloudDensity.edgeStrength(.15f, .15f, .15f), 0, "Original full-density threshold unchanged");
+        near(1, CloudDensity.edgeStrength(1, .15f, .15f), 0, "Dense cloud strength unchanged");
+        near(CloudDensity.strength(.05f, .15f), CloudDensity.edgeStrength(.05f, .15f, 0), .00001f, "Zero margin restores old edge");
+        near(0, CloudDensity.edgeStrength(-10000, .15f, .15f), 0, "No fog outside vertical layers");
+    }
+    private static void grayColor() {
+        near(.9f, CloudDensity.gray(1,1,1,0,.9f,.65f), .00001f, "Light gray fringe");
+        near(.65f, CloudDensity.gray(1,1,1,1,.9f,.65f), .00001f, "Darker dense fog");
+        require(CloudDensity.gray(1,1,1,.8f,.9f,.65f) < CloudDensity.gray(1,1,1,.2f,.9f,.65f), "More fog shades gray darker");
+        near(.13f, CloudDensity.gray(.2f,.2f,.2f,1,.9f,.65f), .00001f, "Night lighting retained");
     }
     private static void near(float expected, float actual, float tolerance, String message) {
         require(Float.isFinite(actual) && Math.abs(expected - actual) <= tolerance, message + ": " + actual);

@@ -30,6 +30,18 @@ public final class CloudDensity {
         return t * t * (3 - 2 * t);
     }
 
+    /** Expand only the outside edge; full density still begins at boundaryWidth. */
+    public static float edgeStrength(float density, float boundaryWidth, float margin) {
+        return strength(density + margin, boundaryWidth + margin);
+    }
+
+    /** Neutral grey, preserving day/night/weather lighting while shading dense fog. */
+    public static float gray(float red, float green, float blue, float strength,
+                             float edgeBrightness, float denseBrightness) {
+        float light = .2126f * red + .7152f * green + .0722f * blue;
+        return clamp(light * (edgeBrightness + (denseBrightness - edgeBrightness) * clamp(strength)));
+    }
+
     public static float smooth(float previous, float target, double elapsedTicks, double transitionTicks) {
         if (transitionTicks <= 0) return target;
         return previous + (target - previous) * (float) (1 - Math.exp(-Math.max(0, elapsedTicks) / transitionTicks));
