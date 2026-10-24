@@ -16,6 +16,8 @@
   "mixins": [
     "wind.ServerSubLevelWindMixin",
     "atmosphere.DimensionAtmosphereMixin",
-    "atmosphere.PropellerAtmosphereMixin"
+    "atmosphere.PropellerAtmosphereMixin",
+    "failure.KineticFailureMixin",
+    "failure.PropellerFailureMixin"
   ]
 }

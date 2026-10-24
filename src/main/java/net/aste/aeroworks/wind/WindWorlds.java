@@ -46,6 +46,14 @@ public final class WindWorlds {
     }
     private WindWorlds() {}
 
+    /** O(1) read of the same immutable episode snapshot that drives physics, without a weather/noise query. */
+    public static boolean isTurbulent(ServerLevel level,int bodyId) {
+        var world=WORLDS.get(level);
+        if(world==null)return false;
+        var body=world.snapshot.bodies().get(bodyId);
+        return body!=null && body.episode()!=null && WindSettings.current().effects().turbulenceEnabled();
+    }
+
     static void sample(WindSample sample, WindParameters p, org.joml.Vector3d out, org.joml.Vector3d torque) {
         var world = sample.level() == null ? null : WORLDS.get(sample.level());
         var result = RESULT.get();

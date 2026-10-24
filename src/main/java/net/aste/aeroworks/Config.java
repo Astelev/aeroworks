@@ -203,6 +203,39 @@ public class Config {
                 .defineInRange("scale_height",256.0,1.0,1000000.0);
         BUILDER.pop();
     }
+    public static final ModConfigSpec.BooleanValue FAILURE_ENABLED;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> FAILURE_BLOCKS;
+    public static final ModConfigSpec.IntValue FAILURE_REPAIR_GRACE;
+    public static final ModConfigSpec.DoubleValue FAILURE_CHANCE;
+    public static final ModConfigSpec.DoubleValue FAILURE_REFERENCE_RPM;
+    public static final ModConfigSpec.DoubleValue FAILURE_RPM_WEIGHT;
+    public static final ModConfigSpec.DoubleValue FAILURE_REFERENCE_SPEED;
+    public static final ModConfigSpec.DoubleValue FAILURE_SPEED_WEIGHT;
+    public static final ModConfigSpec.DoubleValue FAILURE_ALTITUDE_START;
+    public static final ModConfigSpec.DoubleValue FAILURE_ALTITUDE_SCALE;
+    public static final ModConfigSpec.DoubleValue FAILURE_ALTITUDE_WEIGHT;
+    public static final ModConfigSpec.DoubleValue FAILURE_TURBULENCE;
+    public static final ModConfigSpec.DoubleValue FAILURE_MAX_MULTIPLIER;
+    static {
+        BUILDER.push("failures");
+        FAILURE_ENABLED=BUILDER.comment("Случайные отказы работающих кинетических блоков. false временно отключает последствия, не стирая сохранённые отказы.").define("enabled",true);
+        FAILURE_BLOCKS=BUILDER.comment("Список блоков, способных отказать. Проверяется ненулевое эффективное вращение Create.","Первый поддержанный тип — aeronautics:propeller_bearing. Специальные механизмы других модов могут требовать адаптера.")
+                .defineListAllowEmpty("blocks",List.of("aeronautics:propeller_bearing"),()->"aeronautics:propeller_bearing",
+                        value->value instanceof String id && ResourceLocation.tryParse(id)!=null);
+        FAILURE_REPAIR_GRACE=BUILDER.comment("Защита от повторного отказа после починки ключом, в секундах загруженного времени.")
+                .defineInRange("repair_grace_seconds",15,0,3600);
+        FAILURE_CHANCE=BUILDER.comment("Базовая вероятность отказа за минуту работы при эталонных RPM и без высотных/скоростных усилений. Высокое тестовое значение.").defineInRange("base_chance_per_minute",0.3,0.0,1.0);
+        FAILURE_REFERENCE_RPM=BUILDER.comment("Эталонные обороты для базового риска.").defineInRange("reference_rpm",64.0,1.0,1000000.0);
+        FAILURE_RPM_WEIGHT=BUILDER.comment("Влияние оборотов: при 1 риск пропорционален абсолютным RPM, минимум 5% от базового.").defineInRange("rpm_risk_weight",1.0,0.0,100.0);
+        FAILURE_REFERENCE_SPEED=BUILDER.comment("Эталонная мировая скорость аппарата в блоках/сек.").defineInRange("reference_flight_speed",40.0,1.0,1000000.0);
+        FAILURE_SPEED_WEIGHT=BUILDER.comment("При 1 скорость reference_flight_speed удваивает риск.").defineInRange("flight_speed_risk_weight",1.0,0.0,100.0);
+        FAILURE_ALTITUDE_START=BUILDER.comment("Мировая Y, выше которой риск растёт.").defineInRange("altitude_start",128.0,-1000000.0,1000000.0);
+        FAILURE_ALTITUDE_SCALE=BUILDER.comment("Подъём выше altitude_start, который при весе 1 удваивает риск.").defineInRange("altitude_scale",256.0,1.0,1000000.0);
+        FAILURE_ALTITUDE_WEIGHT=BUILDER.comment("Множитель влияния высоты.").defineInRange("altitude_risk_weight",1.0,0.0,100.0);
+        FAILURE_TURBULENCE=BUILDER.comment("Множитель риска во время эпизода турбулентности самого аппарата.").defineInRange("turbulence_multiplier",8.0,1.0,1000.0);
+        FAILURE_MAX_MULTIPLIER=BUILDER.comment("Верхняя граница произведения всех множителей риска.").defineInRange("maximum_risk_multiplier",256.0,1.0,1000000.0);
+        BUILDER.pop();
+    }
     static final ModConfigSpec SPEC = BUILDER.build();
 
     private static boolean validateItemName(final Object obj) {
