@@ -208,6 +208,7 @@ public class Config {
     public static final ModConfigSpec.ConfigValue<List<? extends String>> FAILURE_BLOCK_PROFILES;
     public static final ModConfigSpec.IntValue FAILURE_REPAIR_GRACE;
     public static final ModConfigSpec.DoubleValue FAILURE_CHANCE;
+    public static final ModConfigSpec.DoubleValue FAILURE_START_CHANCE;
     public static final ModConfigSpec.DoubleValue FAILURE_REFERENCE_RPM;
     public static final ModConfigSpec.DoubleValue FAILURE_RPM_WEIGHT;
     public static final ModConfigSpec.DoubleValue FAILURE_REFERENCE_SPEED;
@@ -223,16 +224,18 @@ public class Config {
         FAILURE_BLOCKS=BUILDER.comment("Список блоков, способных отказать. Проверяется ненулевое эффективное вращение Create.","Первый поддержанный тип — aeronautics:propeller_bearing. Специальные механизмы других модов могут требовать адаптера.")
                 .defineListAllowEmpty("blocks",List.of("aeronautics:propeller_bearing"),()->"aeronautics:propeller_bearing",
                         value->value instanceof String id && ResourceLocation.tryParse(id)!=null);
-        FAILURE_BLOCK_PROFILES=BUILDER.comment("Индивидуальный профиль каждого блока. Отсутствующие записи автоматически добавляются из blocks.",
-                        "Формат: namespace:block; base_chance_per_minute=0.3; chance_per_start=0.02; rpm_risk_weight=0.0",
-                        "Любой параметр общего риска можно переопределить; также repair_grace_seconds и count_reversals_as_start=true/false.",
-                        "Для create:mechanical_bearing новая запись получает chance_per_start=0.02 и rpm_risk_weight=0.",
-                        "Запуск/смена направления проверяются сразу; риск по времени учитывает только фактические тики вращения.")
-                .defineListAllowEmpty("block_profiles",List.<String>of(),()->"aeronautics:propeller_bearing; base_chance_per_minute=0.3; chance_per_start=0.0",
+        FAILURE_BLOCK_PROFILES=BUILDER.comment("Множители общих параметров для каждого блока. Отсутствующие строки добавляются из blocks.",
+                        "Формат: namespace:block; base_chance_per_minute_factor=1.0; chance_per_start_factor=1.0; rpm_risk_weight_factor=0.0",
+                        "Любой числовой параметр общего риска и repair_grace_seconds получает суффикс _factor: итог = общий параметр * фактор.",
+                        "Неуказанный фактор равен 1. Шансы ограничены 0..1, защита — 0..3600 с, turbulence/maximum не ниже 1.",
+                        "count_reversals_as_start=true/false остаётся переключателем. Старые абсолютные строки автоматически переводятся в факторы.",
+                        "Для create:mechanical_bearing стартовый фактор 1 и фактор влияния RPM 0; для остальных стартовый фактор 0.")
+                .defineListAllowEmpty("block_profiles",List.<String>of(),()->"aeronautics:propeller_bearing; base_chance_per_minute_factor=1.0; chance_per_start_factor=0.0",
                         value->value instanceof String text && !text.isBlank());
         FAILURE_REPAIR_GRACE=BUILDER.comment("Защита от повторного отказа после починки ключом, в секундах загруженного времени.")
                 .defineInRange("repair_grace_seconds",15,0,3600);
-        FAILURE_CHANCE=BUILDER.comment("Значение по умолчанию для новых индивидуальных профилей: вероятность за минуту при эталонных RPM, без усилений. Явные настройки block_profiles имеют приоритет.").defineInRange("base_chance_per_minute",0.3,0.0,1.0);
+        FAILURE_CHANCE=BUILDER.comment("Общий базовый шанс за минуту фактического вращения; умножается на base_chance_per_minute_factor блока.").defineInRange("base_chance_per_minute",0.3,0.0,1.0);
+        FAILURE_START_CHANCE=BUILDER.comment("Общий базовый шанс на начало движения/реверс; умножается на chance_per_start_factor блока. Ноль отключает стартовые отказы у всех блоков.").defineInRange("chance_per_start",0.02,0.0,1.0);
         FAILURE_REFERENCE_RPM=BUILDER.comment("Эталонные обороты для базового риска.").defineInRange("reference_rpm",64.0,1.0,1000000.0);
         FAILURE_RPM_WEIGHT=BUILDER.comment("Влияние оборотов: при 1 риск пропорционален абсолютным RPM, минимум 5% от базового.").defineInRange("rpm_risk_weight",1.0,0.0,100.0);
         FAILURE_REFERENCE_SPEED=BUILDER.comment("Эталонная мировая скорость аппарата в блоках/сек.").defineInRange("reference_flight_speed",40.0,1.0,1000000.0);

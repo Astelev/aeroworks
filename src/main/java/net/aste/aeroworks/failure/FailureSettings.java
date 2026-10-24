@@ -37,15 +37,21 @@ public final class FailureSettings {
         int grace=Config.FAILURE_REPAIR_GRACE.get()*20;
         var blocks=Config.FAILURE_BLOCKS.get().stream().map(ResourceLocation::parse).collect(Collectors.toUnmodifiableSet());
         var configured=Config.FAILURE_BLOCK_PROFILES.get();
-        var entries=FailureBlockProfile.completeEntries(java.util.List.copyOf(configured),java.util.List.copyOf(Config.FAILURE_BLOCKS.get()),risk);
-        boolean added=entries.size()!=configured.size();
+        double startChance=Config.FAILURE_START_CHANCE.get();
+        var migrated=new java.util.ArrayList<String>();
+        for(var text:configured) {
+            try {migrated.add(FailureBlockProfile.migrate(text,risk,grace,startChance));}
+            catch(RuntimeException error) {migrated.add(text);Aeroworks.LOGGER.warn("Cannot migrate failure profile {}: {}",text,error.getMessage());}
+        }
+        var entries=FailureBlockProfile.completeEntries(migrated,java.util.List.copyOf(Config.FAILURE_BLOCKS.get()),risk);
+        boolean added=!entries.equals(configured);
         var profiles=new HashMap<String,FailureBlockProfile>();
         for(var text:entries) {
             String id=FailureBlockProfile.idOf(text);
             if(id==null) {Aeroworks.LOGGER.warn("Invalid block failure profile: {}",text);continue;}
             if(profiles.containsKey(id)) {Aeroworks.LOGGER.warn("Duplicate failure profile for {}; keeping first entry",id);continue;}
             try {
-                profiles.put(id,FailureBlockProfile.parse(text,risk,grace).profile());
+                profiles.put(id,FailureBlockProfile.parse(text,risk,grace,startChance).profile());
             } catch(RuntimeException error) {
                 profiles.put(id,current.byName().getOrDefault(id,new FailureBlockProfile(risk,0,grace,true)));
                 Aeroworks.LOGGER.warn("Invalid failure profile for {}; retaining previous/default parameters: {}",id,error.getMessage());
@@ -58,7 +64,7 @@ public final class FailureSettings {
         }
         current=new Snapshot(Config.FAILURE_ENABLED.get(),blocks,risk,grace,Map.copyOf(byBlock),Map.copyOf(profiles));
         if(added) {
-            // Idempotent: the reloading event caused by save sees every generated entry already present.
+            // Idempotent: migrated factors and generated entries are unchanged on the save/reload event.
             Config.FAILURE_BLOCK_PROFILES.set(entries);
             var loaded=event.getConfig().getLoadedConfig();
             if(loaded!=null)loaded.save();

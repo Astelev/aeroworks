@@ -10,25 +10,48 @@ public final class FailureProfilesTest {
     private static void near(double a,double b){check(Math.abs(a-b)<1e-10,"Mismatch "+a+" / "+b);}
     public static void main(String[] args) {
         profiles(); shortWork(); starts(); context();
-        System.out.println("Failure profiles: per-block inheritance/validation, idempotent auto-entries, short-stroke accounting, starts/reversals, protection context and occupied exposure passed");
+        System.out.println("Failure profiles: common/per-block multiplication, migration and validation, idempotent auto-entries, short-stroke accounting, starts/reversals, protection context and occupied exposure passed");
     }
     private static void profiles() {
-        var p=FailureBlockProfile.parse("aeronautics:propeller_bearing; base_chance_per_minute=0.01; chance_per_start=0",R,300).profile();
-        var q=FailureBlockProfile.parse("create:mechanical_bearing; base_chance_per_minute=0.8; chance_per_start=0.02; rpm_risk_weight=0; repair_grace_seconds=5; count_reversals_as_start=false",R,300).profile();
-        near(p.risk().baseChancePerMinute(),.01);near(q.risk().baseChancePerMinute(),.8);
-        near(q.risk().turbulenceMultiplier(),R.turbulenceMultiplier());check(q.repairGraceTicks()==100&&!q.countReversals(),"Per-block repair/reversal overrides");
-        check(q.probability(16,16,0,64,false,.05,true)>p.probability(16,16,0,64,false,.05,true),"Independent block chances");
-        near(q.risk().eventProbability(.02,16,0,64,false),.02);
+        String row="create:mechanical_bearing; base_chance_per_minute_factor=2; chance_per_start_factor=3; rpm_risk_weight_factor=0; repair_grace_seconds_factor=2; count_reversals_as_start=false";
+        var p=FailureBlockProfile.parse(row,R,300,.02).profile();
+        near(p.risk().baseChancePerMinute(),.6);near(p.chancePerStart(),.06);
+        near(p.risk().rpmWeight(),0);check(p.repairGraceTicks()==600&&!p.countReversals(),"Protection factor and reversal switch");
+        var lower=new FailureRisk(.1,64,1,40,1,128,256,1,8,256);
+        var q=FailureBlockProfile.parse(row,lower,100,.01).profile();
+        near(q.risk().baseChancePerMinute(),.2);near(q.chancePerStart(),.03);check(q.repairGraceTicks()==200,"Common protection still applies");
+        check(q.probability(16,16,0,64,false,1,true)<p.probability(16,16,0,64,false,1,true),"Changing globals affects existing factors");
+        var zero=new FailureRisk(0,64,1,40,1,128,256,1,8,256);
+        near(FailureBlockProfile.parse(row,zero,300,0).profile().probability(16,16,100,600,true,1,true),0);
+        near(FailureBlockProfile.parse("create:test",R,300).profile().risk().baseChancePerMinute(),R.baseChancePerMinute());
+        near(FailureBlockProfile.parse("create:test; base_chance_per_minute_factor=10; chance_per_start_factor=100",R,300).profile().chancePerStart(),1);
+        near(FailureBlockProfile.parse("create:test; base_chance_per_minute_factor=10",R,300).profile().risk().baseChancePerMinute(),1);
         var rows=FailureBlockProfile.completeEntries(List.of(),List.of("aeronautics:propeller_bearing","create:mechanical_bearing"),R);
-        check(rows.size()==2,"One generated profile for each selected block");
-        check(rows.equals(FailureBlockProfile.completeEntries(rows,List.of("aeronautics:propeller_bearing","create:mechanical_bearing"),R)),"Saving generated profiles must not loop or duplicate");
-        var preset=FailureBlockProfile.parse(rows.get(1),R,300).profile();
-        near(preset.chancePerStart(),.02);near(preset.risk().rpmWeight(),0);
-        var custom=List.of("create:mechanical_bearing; chance_per_start=0.73");
-        check(FailureBlockProfile.completeEntries(custom,List.of("create:mechanical_bearing"),R).equals(custom),"Never overwrite user values");
-        for(String bad:List.of("bad id; chance_per_start=.1","create:test; typo=.1","create:test; chance_per_start=NaN", "create:test; chance_per_start=1.1", "create:test; reference_rpm=0", "create:test; count_reversals_as_start=maybe", "create:test; repair_grace_seconds=2147483647", "create:test; chance_per_start=.1; chance_per_start=.2")) {
+        check(rows.size()==2,"One generated factor profile per selected block");
+        check(rows.equals(FailureBlockProfile.completeEntries(rows,List.of("aeronautics:propeller_bearing","create:mechanical_bearing"),lower)),"Generated rows never freeze common chances or duplicate");
+        near(FailureBlockProfile.parse(rows.get(1),R,300,.02).profile().chancePerStart(),.02);
+        near(FailureBlockProfile.parse(rows.get(1),lower,300,.001).profile().chancePerStart(),.001);
+        near(FailureBlockProfile.parse(rows.get(0),R,300,.02).profile().chancePerStart(),0);
+        check(FailureBlockProfile.migrate(row,R,300,.02).equals(row),"New profiles remain untouched");
+        String legacy="create:mechanical_bearing; base_chance_per_minute=0.6; chance_per_start=0.04; rpm_risk_weight=0; repair_grace_seconds=5";
+        String migrated=FailureBlockProfile.migrate(legacy,R,300,.02);
+        var old=FailureBlockProfile.parse(migrated,R,300,.02).profile();
+        near(old.risk().baseChancePerMinute(),.6);near(old.chancePerStart(),.04);near(old.risk().rpmWeight(),0);check(old.repairGraceTicks()==100,"Legacy protection converted");
+        check(FailureBlockProfile.migrate(migrated,R,300,.02).equals(migrated),"Migration must be idempotent");
+        var oldWithoutStart=FailureBlockProfile.parse(FailureBlockProfile.migrate("create:test; base_chance_per_minute=.3",R,300,.02),R,300,.02).profile();
+        near(oldWithoutStart.chancePerStart(),0);
+        var globals=new FailureRisk(.05,128,2,80,3,256,512,4,16,512);
+        var neutral=FailureBlockProfile.parse("create:test",globals,600,.005).profile();
+        check(neutral.risk().equals(globals),"All omitted numerical settings follow common values");near(neutral.chancePerStart(),.005);
+        var factors=FailureBlockProfile.parse("create:test; reference_rpm_factor=2; rpm_risk_weight_factor=.5; reference_flight_speed_factor=2; flight_speed_risk_weight_factor=2; altitude_start_factor=.5; altitude_scale_factor=2; altitude_risk_weight_factor=2; turbulence_multiplier_factor=.5; maximum_risk_multiplier_factor=.5",globals,600,.005).profile().risk();
+        near(factors.referenceRPM(),256);near(factors.rpmWeight(),1);near(factors.referenceSpeed(),160);near(factors.speedWeight(),6);
+        near(factors.altitudeStart(),128);near(factors.altitudeScale(),1024);near(factors.altitudeWeight(),8);near(factors.turbulenceMultiplier(),8);near(factors.maximumMultiplier(),256);
+
+        near(FailureBlockProfile.parse(migrated,lower,300,.01).profile().risk().baseChancePerMinute(),.2);
+        near(FailureBlockProfile.parse(FailureBlockProfile.migrate(legacy,zero,300,0),zero,300,0).profile().probability(16,16,0,64,false,1,true),0);
+        for(String bad:List.of("bad id; chance_per_start_factor=1","create:test; typo=1","create:test; chance_per_start_factor=NaN", "create:test; chance_per_start_factor=-1", "create:test; reference_rpm_factor=0", "create:test; count_reversals_as_start=maybe", "create:test; repair_grace_seconds_factor=Infinity", "create:test; chance_per_start_factor=1; chance_per_start_factor=2", "create:test; base_chance_per_minute=.3")) {
             boolean rejected=false;try{FailureBlockProfile.parse(bad,R,300);}catch(RuntimeException expected){rejected=true;}
-            check(rejected,"Reject malformed override: "+bad);
+            check(rejected,"Reject malformed factor: "+bad);
         }
     }
     private static void shortWork() {
@@ -51,7 +74,7 @@ public final class FailureProfilesTest {
         check(w.observe(-16,true),"Direction reversal can count as a stroke");
         check(!w.observe(16,false),"Reversal counting is independently configurable");
         w.observe(0,true);check(w.observe(16,true),"Actual restart is detected within one tick");
-        var p=FailureBlockProfile.parse("create:mechanical_bearing; base_chance_per_minute=0; chance_per_start=.02; rpm_risk_weight=0",R,300).profile();
+        var p=FailureBlockProfile.parse("create:mechanical_bearing; base_chance_per_minute_factor=0; chance_per_start_factor=1; rpm_risk_weight_factor=0",R,300).profile();
         near(p.probability(16,16,0,64,false,.05,true),.02);
         near(p.probability(16,16,0,64,false,.05,false),0);
         check(p.probability(16,16,40,400,true,.05,true)>.02,"Flight environment amplifies stroke risk");

@@ -91,3 +91,9 @@ assert 'Map<Block,FailureBlockProfile> byBlock' in settings
 assert 'FailureBlockProfile.completeEntries' in settings and 'if(added)' in settings and 'loaded.save()' in settings
 assert 'FailureBlockProfile.parse' not in model
 print('Per-block profiles: cached block lookup, idempotent generated config, per-tick work observation, short-stroke retention, immediate start rolls and duplicate-tick guard verified')
+
+assert 'FailureBlockProfile.migrate(text,risk,grace,startChance)' in settings
+assert 'FailureBlockProfile.parse(text,risk,grace,startChance)' in settings
+assert 'Config.FAILURE_START_CHANCE.get()' in settings
+assert 'boolean added=!entries.equals(configured)' in settings
+print('Failure factor integration: common start chance, migrated profiles and effective factors rebuilt on config reload')
