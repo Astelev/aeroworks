@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    {"id": "aeronautics:wooden_propeller", "required": false},
+    {"id": "aeronautics:andesite_propeller", "required": false},
+    {"id": "aeronautics:smart_propeller", "required": false},
+    {"id": "aeronautics:propeller_bearing", "required": false},
+    {"id": "aeronautics:gyroscopic_propeller_bearing", "required": false}
+  ]
+}

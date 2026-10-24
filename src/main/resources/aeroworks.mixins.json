@@ -15,6 +15,7 @@
   },
   "mixins": [
     "wind.ServerSubLevelWindMixin",
-    "atmosphere.DimensionAtmosphereMixin"
+    "atmosphere.DimensionAtmosphereMixin",
+    "atmosphere.PropellerAtmosphereMixin"
   ]
 }

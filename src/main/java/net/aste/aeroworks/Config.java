@@ -189,6 +189,20 @@ public class Config {
                 .defineInRange("storm_chance_multiplier", 2.0, 1.0, 20.0);
         BUILDER.pop().pop();
     }
+    public static final ModConfigSpec.BooleanValue PROPELLER_ALTITUDE_ENABLED;
+    public static final ModConfigSpec.DoubleValue PROPELLER_FADE_START;
+    public static final ModConfigSpec.DoubleValue PROPELLER_SCALE_HEIGHT;
+    static {
+        BUILDER.push("propellers");
+        PROPELLER_ALTITUDE_ENABLED=BUILDER.comment("Дополнительно снижать тягу винтов с высотой в измерениях включённой atmosphere. Только блоки тега aste_aeroworks:altitude_sensitive_propellers.")
+                .define("altitude_efficiency_enabled",true);
+        PROPELLER_FADE_START=BUILDER.comment("Мировая Y начала дополнительного ослабления винтов. Ниже винты работают по прежней кривой давления.")
+                .defineInRange("fade_start_height",128.0,-1000000.0,1000000.0);
+        PROPELLER_SCALE_HEIGHT=BUILDER.comment("Подъём после fade_start_height, при котором дополнительный множитель равен 1/e. Меньше = быстрее ослабевает тяга.",
+                "Множитель = exp(-((Y-fade_start_height)/scale_height)^2), только выше начала перехода.")
+                .defineInRange("scale_height",256.0,1.0,1000000.0);
+        BUILDER.pop();
+    }
     static final ModConfigSpec SPEC = BUILDER.build();
 
     private static boolean validateItemName(final Object obj) {

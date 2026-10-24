@@ -36,6 +36,11 @@ public final class AtmosphereSettings {
         current = new Settings(Config.ATMOSPHERE_ENABLED.get(), dimensions, profile);
     }
 
+    public static boolean applies(Level level) {
+        var settings=current;
+        return settings.enabled() && settings.dimensions().contains(level.dimension().location());
+    }
+
     /** NaN means delegate to Sable's original curve, including custom dimension data. */
     public static double densityOrOriginal(Level level, double height) {
         var settings = current;
