@@ -30,10 +30,9 @@ public abstract class KineticFailureMixin extends BlockEntity implements Failure
     @Unique private final FailureState aste_aeroworks$failure=new FailureState();
     @Unique private long aste_aeroworks$lastFailureCheck=Long.MIN_VALUE;
     @Shadow public abstract float getSpeed();
-    @Shadow public abstract void sendData();
     protected KineticFailureMixin(BlockEntityType<?> type,BlockPos pos,BlockState state) { super(type,pos,state); }
     @Override public FailureState aste_aeroworks$failureState() { return aste_aeroworks$failure; }
-    @Override public void aste_aeroworks$syncFailure() { setChanged();sendData(); }
+    @Override public void aste_aeroworks$syncFailure() { setChanged();((SyncedFailureInvoker)this).aste_aeroworks$sendFailureData(); }
     @Inject(method="tick",at=@At("TAIL"),require=1)
     private void aste_aeroworks$checkFailure(CallbackInfo ci) {
         if(!(level instanceof ServerLevel server))return;

@@ -18,6 +18,7 @@
     "atmosphere.DimensionAtmosphereMixin",
     "atmosphere.PropellerAtmosphereMixin",
     "failure.KineticFailureMixin",
-    "failure.PropellerFailureMixin"
+    "failure.PropellerFailureMixin",
+    "failure.SyncedFailureInvoker"
   ]
 }

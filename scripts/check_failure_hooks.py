@@ -45,3 +45,11 @@ assert 'aste_aeroworks$syncFailure()' in repair and 'tools/wrench' in repair
 registered=json.loads((root/'src/main/resources/aeroworks.mixins.json').read_text())['mixins']
 assert 'failure.KineticFailureMixin' in registered and 'failure.PropellerFailureMixin' in registered
 print('Failure hooks: Create tick/RPM/NBT signatures, moved-block returns, retained network rotation, Sable thrust suppression, cached world context and authoritative wrench repair verified')
+
+invoker=(root/'src/main/java/net/aste/aeroworks/mixin/failure/SyncedFailureInvoker.java').read_text()
+assert 'foundation.blockEntity.SyncedBlockEntity' in invoker and '@Invoker(value="sendData",remap=false)' in invoker
+assert '@Shadow public abstract void sendData' not in mixin
+assert '((SyncedFailureInvoker)this).aste_aeroworks$sendFailureData()' in mixin
+assert 'failure.SyncedFailureInvoker' in registered
+assert 'now-aste_aeroworks$lastFailureCheck<20' in mixin
+print('Failure sync: invoker binds sendData to its declaring superclass; duplicate ticks cannot repeat a check')
