@@ -7,7 +7,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import org.joml.Vector3d;
 
-/** Server tick only. No scan of loaded chunks or surfaces, no work inside a physics callback. */
+/** Cheap work/occupancy accounting per tick; world sampling, risk math and RNG only per active second or start. */
 public final class FailureSystem {
     private static final ThreadLocal<Vector3d> POSITION=ThreadLocal.withInitial(Vector3d::new);
     private FailureSystem() {}
@@ -15,25 +15,38 @@ public final class FailureSystem {
         return blockEntity instanceof FailureAccess access && access.aste_aeroworks$failureState().failed()
                 && FailureSettings.current().enabled();
     }
-    public static void check(BlockEntity entity,FailureAccess access,float rpm) {
+    public static void tick(BlockEntity entity,FailureAccess access,FailureWork work) {
         if(!(entity.getLevel() instanceof ServerLevel level)||entity.isRemoved())return;
         var state=access.aste_aeroworks$failureState();
-        if(state.graceTicks()>0) {
-            state.elapse(20);entity.setChanged();return;
+        boolean protectedNow=state.graceTicks()>0;
+        if(protectedNow) {
+            state.elapse(1);
+            if(state.graceTicks()==0||level.getGameTime()%20==0)entity.setChanged();
         }
         var settings=FailureSettings.current();
-        if(!settings.enabled()||!state.canFail()||!settings.includes(entity.getBlockState())
-                ||!Float.isFinite(rpm)||Math.abs(rpm)<.001)return;
+        var profile=settings.profile(entity.getBlockState());
+        if(!settings.enabled()||profile==null) {work.reset();return;}
+        float rpm=access.aste_aeroworks$failureRPM();
+        work.use(profile);
+        boolean started=work.observe(rpm,profile.countReversals());
+        if(protectedNow) {work.discardExposure();return;}
+        if(!state.canFail()) {work.discardExposure();return;}
+        // An idle tick updates the transition detector but keeps the fraction of eligible work already done.
+        if(!work.running())return;
         var body=Sable.HELPER.getContaining(level,entity.getBlockPos());
-        // No chance roll at all for stationary machinery or unoccupied/other aircraft.
         if(!(body instanceof ServerSubLevel serverBody) || body.isRemoved()
-                || !FailureOccupancy.hasPlayer(level,serverBody))return;
+                || !FailureOccupancy.hasPlayer(level,serverBody)) {work.discardExposure();return;}
+        work.enter(body.getUniqueId());
+        work.accumulate(rpm);
+        boolean startRoll=started && profile.chancePerStart()>0;
+        if(!startRoll && !work.due())return;
         var pos=POSITION.get();
         pos.set(entity.getBlockPos().getX()+.5,entity.getBlockPos().getY()+.5,entity.getBlockPos().getZ()+.5);
         double speed=serverBody.latestLinearVelocity.length();
         body.logicalPose().transformPosition(pos);
         boolean turbulent=WindWorlds.isTurbulent(level,serverBody.getRuntimeId());
-        double probability=settings.risk().probability(rpm,speed,pos.y,turbulent,1);
+        double probability=profile.probability(work.averageRPM(),rpm,speed,pos.y,turbulent,work.seconds(),startRoll);
+        work.clearWindow();
         if(probability>0 && state.tryFail(probability,level.random.nextDouble()))access.aste_aeroworks$syncFailure();
     }
 }

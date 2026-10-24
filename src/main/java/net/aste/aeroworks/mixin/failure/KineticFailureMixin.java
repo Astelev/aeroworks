@@ -6,6 +6,7 @@ import net.aste.aeroworks.failure.FailureState;
 import net.aste.aeroworks.failure.FailurePersistence;
 import net.aste.aeroworks.failure.FailureSystem;
 import net.aste.aeroworks.failure.FailureVisuals;
+import net.aste.aeroworks.failure.FailureWork;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -29,9 +30,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(targets="com.simibubi.create.content.kinetics.base.KineticBlockEntity",remap=false)
 public abstract class KineticFailureMixin extends BlockEntity implements FailureAccess {
     @Unique private final FailureState aste_aeroworks$failure=new FailureState();
-    @Unique private long aste_aeroworks$lastFailureCheck=Long.MIN_VALUE;
+    @Unique private long aste_aeroworks$lastFailureTick=Long.MIN_VALUE;
+    @Unique private final FailureWork aste_aeroworks$work=new FailureWork();
     @Shadow public abstract float getSpeed();
     protected KineticFailureMixin(BlockEntityType<?> type,BlockPos pos,BlockState state) { super(type,pos,state); }
+    @Override public float aste_aeroworks$failureRPM() {return getSpeed();}
     @Override public FailureState aste_aeroworks$failureState() { return aste_aeroworks$failure; }
     @Override public void aste_aeroworks$syncFailure() { setChanged();((SyncedFailureInvoker)this).aste_aeroworks$sendFailureData(); }
     @Inject(method="tick",at=@At("RETURN"),require=1)
@@ -40,13 +43,10 @@ public abstract class KineticFailureMixin extends BlockEntity implements Failure
             if(level!=null && level.isClientSide && aste_aeroworks$failure.failed())FailureVisuals.tick(this);
             return;
         }
-        // Stagger the one-second checks across positions instead of processing every machine together.
         long now=server.getGameTime();
-        if(Math.floorMod(now+Integer.toUnsignedLong(worldPosition.hashCode()),20)!=0)return;
-        if(aste_aeroworks$lastFailureCheck!=Long.MIN_VALUE && now>=aste_aeroworks$lastFailureCheck
-                && now-aste_aeroworks$lastFailureCheck<20)return;
-        aste_aeroworks$lastFailureCheck=now;
-        FailureSystem.check(this,this,getSpeed());
+        if(now==aste_aeroworks$lastFailureTick)return;
+        aste_aeroworks$lastFailureTick=now;
+        FailureSystem.tick(this,this,aste_aeroworks$work);
     }
     @Inject(method="getSpeed",at=@At("HEAD"),cancellable=true,require=1)
     private void aste_aeroworks$stoppedSpeed(CallbackInfoReturnable<Float> cir) {
@@ -60,6 +60,7 @@ public abstract class KineticFailureMixin extends BlockEntity implements Failure
     private void aste_aeroworks$readFailure(CompoundTag tag,HolderLookup.Provider registries,boolean clientPacket,CallbackInfo ci) {
         // RETURN also covers Create's early return after moving/assembling a block entity.
         FailurePersistence.read(tag,aste_aeroworks$failure);
+        aste_aeroworks$work.reset();
     }
     @Inject(method="addToGoggleTooltip",at=@At("HEAD"),cancellable=true,require=1)
     private void aste_aeroworks$failureTooltip(List<Component> tooltip,boolean sneaking,CallbackInfoReturnable<Boolean> cir) {

@@ -205,6 +205,7 @@ public class Config {
     }
     public static final ModConfigSpec.BooleanValue FAILURE_ENABLED;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> FAILURE_BLOCKS;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> FAILURE_BLOCK_PROFILES;
     public static final ModConfigSpec.IntValue FAILURE_REPAIR_GRACE;
     public static final ModConfigSpec.DoubleValue FAILURE_CHANCE;
     public static final ModConfigSpec.DoubleValue FAILURE_REFERENCE_RPM;
@@ -222,6 +223,13 @@ public class Config {
         FAILURE_BLOCKS=BUILDER.comment("Список блоков, способных отказать. Проверяется ненулевое эффективное вращение Create.","Первый поддержанный тип — aeronautics:propeller_bearing. Специальные механизмы других модов могут требовать адаптера.")
                 .defineListAllowEmpty("blocks",List.of("aeronautics:propeller_bearing"),()->"aeronautics:propeller_bearing",
                         value->value instanceof String id && ResourceLocation.tryParse(id)!=null);
+        FAILURE_BLOCK_PROFILES=BUILDER.comment("Индивидуальный профиль каждого блока. Отсутствующие записи автоматически добавляются из blocks.",
+                        "Формат: namespace:block; base_chance_per_minute=0.3; chance_per_start=0.02; rpm_risk_weight=0.0",
+                        "Любой параметр общего риска можно переопределить; также repair_grace_seconds и count_reversals_as_start=true/false.",
+                        "Для create:mechanical_bearing новая запись получает chance_per_start=0.02 и rpm_risk_weight=0.",
+                        "Запуск/смена направления проверяются сразу; риск по времени учитывает только фактические тики вращения.")
+                .defineListAllowEmpty("block_profiles",List.<String>of(),()->"aeronautics:propeller_bearing; base_chance_per_minute=0.3; chance_per_start=0.0",
+                        value->value instanceof String text && !text.isBlank());
         FAILURE_REPAIR_GRACE=BUILDER.comment("Защита от повторного отказа после починки ключом, в секундах загруженного времени.")
                 .defineInRange("repair_grace_seconds",15,0,3600);
         FAILURE_CHANCE=BUILDER.comment("Базовая вероятность отказа за минуту работы при эталонных RPM и без высотных/скоростных усилений. Высокое тестовое значение.").defineInRange("base_chance_per_minute",0.3,0.0,1.0);

@@ -294,3 +294,12 @@ def testFailurePersistence = tasks.register('testFailurePersistence', JavaExec) 
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
 }
 tasks.named('check') { dependsOn testFailures, testFailurePersistence }
+
+
+def testFailureProfiles = tasks.register('testFailureProfiles', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.FailureProfilesTest'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testFailureProfiles }

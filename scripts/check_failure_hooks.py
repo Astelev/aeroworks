@@ -27,7 +27,7 @@ assert 'public final org.joml.Vector3d latestLinearVelocity' in body and 'getRun
 network=inspect(create,'com.simibubi.create.content.kinetics.RotationPropagator')
 assert 'getTheoreticalSpeed:()F' in network
 mixin=(root/'src/main/java/net/aste/aeroworks/mixin/failure/KineticFailureMixin.java').read_text()
-assert 'Math.floorMod(' in mixin and ',20)!=0' in mixin
+assert 'now==aste_aeroworks$lastFailureTick' in mixin
 assert 'method="read",at=@At("RETURN")' in mixin
 assert 'method="write",at=@At("RETURN")' in mixin
 assert 'FailurePersistence.read(' in mixin and 'FailurePersistence.write(' in mixin
@@ -51,7 +51,7 @@ assert 'foundation.blockEntity.SyncedBlockEntity' in invoker and '@Invoker(value
 assert '@Shadow public abstract void sendData' not in mixin
 assert '((SyncedFailureInvoker)this).aste_aeroworks$sendFailureData()' in mixin
 assert 'failure.SyncedFailureInvoker' in registered
-assert 'now-aste_aeroworks$lastFailureCheck<20' in mixin
+assert 'aste_aeroworks$lastFailureTick=now' in mixin
 print('Failure sync: invoker binds sendData to its declaring superclass; duplicate ticks cannot repeat a check')
 
 occupancy=(root/'src/main/java/net/aste/aeroworks/failure/FailureOccupancy.java').read_text()
@@ -59,7 +59,7 @@ assert 'getTrackingOrVehicleSubLevel(player)' in occupancy
 assert 'snapshot.bodies().contains(body.getUniqueId())' in occupancy
 assert 'snapshot.tick()!=now' in occupancy and 'player.isSpectator()' in occupancy and '!player.isAlive()' in occupancy
 assert 'CACHE.remove(level)' in occupancy and 'CACHE.clear()' in occupancy
-assert model.index('!FailureOccupancy.hasPlayer(level,serverBody)')<model.index('settings.risk().probability(')<model.index('level.random.nextDouble()')
+assert model.index('!FailureOccupancy.hasPlayer(level,serverBody)')<model.index('profile.probability(')<model.index('level.random.nextDouble()')
 assert '!(body instanceof ServerSubLevel serverBody)' in model
 smoke=(root/'src/main/java/net/aste/aeroworks/client/FailureSmoke.java').read_text()
 assert 'ParticleTypes.LARGE_SMOKE' in smoke and 'FailureSystem.stopped(entity)' in smoke
@@ -79,3 +79,15 @@ print('Failure scope/visuals: actual occupied ship identity before RNG, one play
 assert method(kinetic,'tick').count('return')>1
 assert 'method="tick",at=@At("RETURN")' in mixin
 print('Failure smoke hook: client early-return path is covered, not only the server method tail')
+
+work=(root/'src/main/java/net/aste/aeroworks/failure/FailureWork.java').read_text()
+assert 'activeTicks>=20' in work and 'rpmSum+=Math.abs(rpm)' in work
+assert 'countReversals&&direction!=nextDirection' in work
+assert 'work.accumulate(rpm)' in model and 'if(!startRoll && !work.due())return' in model
+assert model.index('!FailureOccupancy.hasPlayer(level,serverBody)')<model.index('work.accumulate(rpm)')
+assert model.index('profile==null')<model.index('aste_aeroworks$failureRPM()')
+settings=(root/'src/main/java/net/aste/aeroworks/failure/FailureSettings.java').read_text()
+assert 'Map<Block,FailureBlockProfile> byBlock' in settings
+assert 'FailureBlockProfile.completeEntries' in settings and 'if(added)' in settings and 'loaded.save()' in settings
+assert 'FailureBlockProfile.parse' not in model
+print('Per-block profiles: cached block lookup, idempotent generated config, per-tick work observation, short-stroke retention, immediate start rolls and duplicate-tick guard verified')

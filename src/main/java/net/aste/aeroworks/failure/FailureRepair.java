@@ -36,7 +36,10 @@ public final class FailureRepair {
         // Consume the click on both sides before a normal wrench action rotates or dismantles the bearing.
         event.setCanceled(true);event.setCancellationResult(InteractionResult.SUCCESS);
         if(level.isClientSide)return;
-        if(access.aste_aeroworks$failureState().repair(FailureSettings.current().repairGraceTicks())) {
+        var settings=FailureSettings.current();
+        var profile=settings.profile(entity.getBlockState());
+        int grace=profile==null?settings.repairGraceTicks():profile.repairGraceTicks();
+        if(access.aste_aeroworks$failureState().repair(grace)) {
             access.aste_aeroworks$syncFailure();
             player.displayClientMessage(Component.translatable("aste_aeroworks.failure.repaired"),true);
             level.playSound(null,event.getPos(),SoundEvents.ANVIL_USE,SoundSource.BLOCKS,.35f,1.5f);
