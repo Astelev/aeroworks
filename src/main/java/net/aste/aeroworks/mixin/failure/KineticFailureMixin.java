@@ -5,6 +5,7 @@ import net.aste.aeroworks.failure.FailureAccess;
 import net.aste.aeroworks.failure.FailureState;
 import net.aste.aeroworks.failure.FailurePersistence;
 import net.aste.aeroworks.failure.FailureSystem;
+import net.aste.aeroworks.failure.FailureVisuals;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -33,9 +34,12 @@ public abstract class KineticFailureMixin extends BlockEntity implements Failure
     protected KineticFailureMixin(BlockEntityType<?> type,BlockPos pos,BlockState state) { super(type,pos,state); }
     @Override public FailureState aste_aeroworks$failureState() { return aste_aeroworks$failure; }
     @Override public void aste_aeroworks$syncFailure() { setChanged();((SyncedFailureInvoker)this).aste_aeroworks$sendFailureData(); }
-    @Inject(method="tick",at=@At("TAIL"),require=1)
+    @Inject(method="tick",at=@At("RETURN"),require=1)
     private void aste_aeroworks$checkFailure(CallbackInfo ci) {
-        if(!(level instanceof ServerLevel server))return;
+        if(!(level instanceof ServerLevel server)) {
+            if(level!=null && level.isClientSide && aste_aeroworks$failure.failed())FailureVisuals.tick(this);
+            return;
+        }
         // Stagger the one-second checks across positions instead of processing every machine together.
         long now=server.getGameTime();
         if(Math.floorMod(now+Integer.toUnsignedLong(worldPosition.hashCode()),20)!=0)return;

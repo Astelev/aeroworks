@@ -24,16 +24,15 @@ public final class FailureSystem {
         var settings=FailureSettings.current();
         if(!settings.enabled()||!state.canFail()||!settings.includes(entity.getBlockState())
                 ||!Float.isFinite(rpm)||Math.abs(rpm)<.001)return;
+        var body=Sable.HELPER.getContaining(level,entity.getBlockPos());
+        // No chance roll at all for stationary machinery or unoccupied/other aircraft.
+        if(!(body instanceof ServerSubLevel serverBody) || body.isRemoved()
+                || !FailureOccupancy.hasPlayer(level,serverBody))return;
         var pos=POSITION.get();
         pos.set(entity.getBlockPos().getX()+.5,entity.getBlockPos().getY()+.5,entity.getBlockPos().getZ()+.5);
-        double speed=0;boolean turbulent=false;
-        var body=Sable.HELPER.getContaining(level,entity.getBlockPos());
-        if(body instanceof ServerSubLevel serverBody && !body.isRemoved()) {
-            // Read Sable's cached world velocity; never request a native physics handle on the server tick.
-            speed=serverBody.latestLinearVelocity.length();
-            body.logicalPose().transformPosition(pos);
-            turbulent=WindWorlds.isTurbulent(level,serverBody.getRuntimeId());
-        }
+        double speed=serverBody.latestLinearVelocity.length();
+        body.logicalPose().transformPosition(pos);
+        boolean turbulent=WindWorlds.isTurbulent(level,serverBody.getRuntimeId());
         double probability=settings.risk().probability(rpm,speed,pos.y,turbulent,1);
         if(probability>0 && state.tryFail(probability,level.random.nextDouble()))access.aste_aeroworks$syncFailure();
     }

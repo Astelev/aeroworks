@@ -53,3 +53,29 @@ assert '((SyncedFailureInvoker)this).aste_aeroworks$sendFailureData()' in mixin
 assert 'failure.SyncedFailureInvoker' in registered
 assert 'now-aste_aeroworks$lastFailureCheck<20' in mixin
 print('Failure sync: invoker binds sendData to its declaring superclass; duplicate ticks cannot repeat a check')
+
+occupancy=(root/'src/main/java/net/aste/aeroworks/failure/FailureOccupancy.java').read_text()
+assert 'getTrackingOrVehicleSubLevel(player)' in occupancy
+assert 'snapshot.bodies().contains(body.getUniqueId())' in occupancy
+assert 'snapshot.tick()!=now' in occupancy and 'player.isSpectator()' in occupancy and '!player.isAlive()' in occupancy
+assert 'CACHE.remove(level)' in occupancy and 'CACHE.clear()' in occupancy
+assert model.index('!FailureOccupancy.hasPlayer(level,serverBody)')<model.index('settings.risk().probability(')<model.index('level.random.nextDouble()')
+assert '!(body instanceof ServerSubLevel serverBody)' in model
+smoke=(root/'src/main/java/net/aste/aeroworks/client/FailureSmoke.java').read_text()
+assert 'ParticleTypes.LARGE_SMOKE' in smoke and 'FailureSystem.stopped(entity)' in smoke
+assert 'getContainingClient(entity)' in smoke and 'renderPose(1).transformPosition(POSITION,POSITION)' in smoke
+assert 'emitted>=2' in smoke and 'ParticleStatus.MINIMAL' in smoke and '>96*96' in smoke
+bridge=(root/'src/main/java/net/aste/aeroworks/failure/FailureVisuals.java').read_text()
+assert 'net.minecraft.client' not in bridge
+assert 'level.isClientSide' in mixin and 'FailureVisuals.tick(this)' in mixin
+client=inspect(sable,'dev.ryanhcode.sable.sublevel.ClientSubLevel')
+assert 'renderPose(float)' in client
+helper=inspect(sable,'dev.ryanhcode.sable.ActiveSableCompanion')
+assert 'getContainingClient(net.minecraft.world.level.block.entity.BlockEntity)' in helper
+assert 'getTrackingOrVehicleSubLevel(net.minecraft.world.entity.Entity)' in helper
+print('Failure scope/visuals: actual occupied ship identity before RNG, one player scan per level/tick, dead/spectator exclusion, lifecycle cleanup, transformed bounded smoke and server-safe client bridge verified')
+
+# KineticBlockEntity.tick returns early on the client: TAIL would silently omit the smoke callback.
+assert method(kinetic,'tick').count('return')>1
+assert 'method="tick",at=@At("RETURN")' in mixin
+print('Failure smoke hook: client early-return path is covered, not only the server method tail')
