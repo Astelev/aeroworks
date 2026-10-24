@@ -69,6 +69,8 @@ public class Aeroworks {
         modEventBus.addListener(this::commonSetup);
 
         // Register the Deferred Register to the mod event bus so blocks get registered
+        net.aste.aeroworks.wind.WindParticles.REGISTER.register(modEventBus);
+        modEventBus.addListener(net.aste.aeroworks.network.WindVisualNetwork::register);
         BLOCKS.register(modEventBus);
         // Register the Deferred Register to the mod event bus so items get registered
         ITEMS.register(modEventBus);

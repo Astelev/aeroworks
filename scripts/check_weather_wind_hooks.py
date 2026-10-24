@@ -51,3 +51,16 @@ terrain = (root/'src/main/java/net/aste/aeroworks/wind/MountainFlowCatalog.java'
 assert 'getChunkNow(' in terrain and 'budget = 32' in terrain
 assert not any(word in terrain for word in ('getChunk(', 'getHeightmapPos(', 'getChunkFuture('))
 print('Flight effects: height-culled cached density, loaded-only bounded terrain queries, metadata outside physics verified')
+
+visuals = (root/'src/main/java/net/aste/aeroworks/client/WindVisualEvents.java').read_text()
+assert 'getTrackingOrVehicleSubLevel(mc.player)' in visuals
+assert 'body.getUniqueId().equals(motion.body())' in visuals
+assert 'getCamera().getEntity()!=mc.player' in visuals
+assert 'strength=previousStrength=0' in visuals
+assert 'level.getGameTime()-receivedAt<=20' in visuals
+assert 'level.getGameTime()-receivedAt>40' in visuals
+assert '.setYRot(' not in visuals and '.setXRot(' not in visuals
+network = (root/'src/main/java/net/aste/aeroworks/network/WindVisualNetwork.java').read_text()
+assert 'net.minecraft.client' not in network and 'playToClient' in network
+assert 'flow.rising()' in worlds and 'marks.subList(' in worlds
+print('Wind visuals: ship identity, camera scope, stale packet expiry, bounded markers and server-safe registration verified')

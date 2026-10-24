@@ -7,7 +7,7 @@ public final class FlightWindTest {
     private static void check(boolean ok,String why) { if(!ok) throw new AssertionError(why); }
     private static void near(double a,double b) { check(Math.abs(a-b)<1e-8,"Mismatch "+a+" / "+b); }
     public static void main(String[] args) {
-        mountains(); gusts(); lifecycle(); frameIndependence(); storms();
+        mountains(); gusts(); lifecycle(); frameIndependence(); storms(); alternatingRocking(); cameraMotion();
         System.out.println("Flight wind: mountain boundaries/drift, bounded gusts, per-aircraft torque, distance lifecycle, timestep independence and storm cadence passed");
     }
     private static void mountains() {
@@ -73,6 +73,46 @@ public final class FlightWindTest {
             check((ea==null)==(eb==null),"Distance hazard independent of tick subdivision");
             if(ea!=null) {near(ea.progress(),eb.progress());near(ea.length(),eb.length());check(ea.seed()==eb.seed(),"Same episode");}
         }
+    }
+    private static void alternatingRocking() {
+        for(long seed=1;seed<100;seed++) {
+            for(int half=0;half<100;half++) {
+                double center=(half+.5)*P.rockingPeriod();
+                double a=AlternatingWindPulse.sample(seed,center,P.rockingPeriod());
+                double b=AlternatingWindPulse.sample(seed,center+P.rockingPeriod(),P.rockingPeriod());
+                check(a*b<0,"Every pulse must reverse, irrespective of random seed");
+                check(Math.abs(a)>=.55 && Math.abs(a)<=1,"Random bounded pulse strength");
+                double edge=(half+1)*P.rockingPeriod();
+                double before=AlternatingWindPulse.sample(seed,edge-1e-7,P.rockingPeriod());
+                double after=AlternatingWindPulse.sample(seed,edge+1e-7,P.rockingPeriod());
+                check(Math.abs(before-after)<1e-8,"Force remains continuous at reversals");
+            }
+            var e=new TurbulenceEpisode(seed,0,50,200);
+            double previous=0;
+            int changes=0;
+            for(int tick=0;tick<40;tick++) {
+                var out=new ZonalWindModel.Result();e.apply(P,tick/20.0,10,out);
+                if(out.torqueX*previous<0)changes++;
+                if(Math.abs(out.torqueX)>1e-6)previous=out.torqueX;
+            }
+            check(changes>=10,"Aircraft rocks repeatedly at actual 20 Hz sampling");
+        }
+    }
+    private static void cameraMotion() {
+        var out=new WindCameraMotion.Result();
+        for(int frame=0;frame<1000;frame++) {
+            WindCameraMotion.sample(123,frame/144.0,P.rockingPeriod(),1,out);
+            check(Math.abs(out.roll)<=1 && Math.abs(out.pitch)<=.45 && Math.abs(out.yaw)<=.25,"Small bounded camera angles");
+        }
+        WindCameraMotion.sample(123,7,P.rockingPeriod(),1,out);
+        double roll=out.roll,pitch=out.pitch,yaw=out.yaw;
+        // Repeated rendering of the same time cannot accumulate a permanent aim rotation.
+        for(int frame=0;frame<1000;frame++)WindCameraMotion.sample(123,7,P.rockingPeriod(),1,out);
+        near(roll,out.roll);near(pitch,out.pitch);near(yaw,out.yaw);
+        WindCameraMotion.sample(123,7,P.rockingPeriod(),0,out);
+        near(out.roll,0);near(out.pitch,0);near(out.yaw,0);
+        WindCameraMotion.sample(123,Double.NaN,P.rockingPeriod(),1,out);
+        near(out.roll,0);near(out.pitch,0);near(out.yaw,0);
     }
     private static void storms() {
         near(FlightWindEffects.directionRate(1,0,P),1);

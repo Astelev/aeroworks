@@ -33,7 +33,7 @@ public final class WindWorlds {
     private record Snapshot(double time, double phase, double rate, Int2ObjectOpenHashMap<BodyWeather> bodies) {}
     private static final class World {
         final long seed;
-        int cursor;
+        int cursor, visualCursor;
         final MountainFlowCatalog terrain=new MountainFlowCatalog();
         final SimpleCloudsWind.Cache clouds=new SimpleCloudsWind.Cache();
         Int2ObjectOpenHashMap<Flight> flights=new Int2ObjectOpenHashMap<>();
@@ -71,7 +71,14 @@ public final class WindWorlds {
     public static void tick(LevelTickEvent.Post event) {
         if (!(event.getLevel() instanceof ServerLevel level)) return;
         var config = WindSettings.current();
-        if (!config.enabled() || !config.dynamic() || !WindFields.usesDefault()) { WORLDS.remove(level); return; }
+        if (!config.enabled() || !config.dynamic() || !WindFields.usesDefault()) {
+            WORLDS.remove(level);
+            if(level.getGameTime()%5==0) for(var player:level.players()) {
+                net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
+                        new net.aste.aeroworks.network.WindVisualPayload(level.dimension().location(),null,java.util.List.of()));
+            }
+            return;
+        }
         var p = config.field();
         var effects=config.effects();
         var world = WORLDS.computeIfAbsent(level, value -> new World(value, p));
@@ -141,6 +148,42 @@ public final class WindWorlds {
         world.flights=flights;
         // Never mutate a published map. Removed bodies disappear at the next tick.
         world.snapshot = new Snapshot(now, phase, rate, bodies);
+        if(level.getGameTime()%5==0) publishVisuals(level,world,now,effects,bodies);
+    }
+    private static void publishVisuals(ServerLevel level,World world,double now,WindEffectsParameters p,
+            Int2ObjectOpenHashMap<BodyWeather> bodies) {
+        var players=level.players();
+        if(players.isEmpty()) return;
+        int start=Math.floorMod(world.visualCursor++,players.size());
+        for(int offset=0;offset<players.size();offset++) {
+            var player=players.get((start+offset)%players.size());
+            var body=dev.ryanhcode.sable.Sable.HELPER.getTrackingOrVehicleSubLevel(player);
+            var state=body instanceof dev.ryanhcode.sable.sublevel.ServerSubLevel serverBody && !body.isRemoved()
+                    ? bodies.get(serverBody.getRuntimeId()):null;
+            net.aste.aeroworks.network.WindVisualPayload.Shake shake=null;
+            if(p.turbulenceEnabled() && state!=null && state.sails()>0 && state.episode()!=null) {
+                var e=state.episode();
+                shake=new net.aste.aeroworks.network.WindVisualPayload.Shake(body.getUniqueId(),e.seed(),
+                        Math.max(0,now-e.started()),p.rockingPeriod(),(float)e.envelope(p));
+            }
+            var pos=dev.ryanhcode.sable.Sable.HELPER.projectOutOfSubLevel(level,player.position());
+            var marks=new java.util.ArrayList<net.aste.aeroworks.network.WindVisualPayload.Flow>();
+            for(var flow:world.terrain.visible(level,world.seed,pos.x,pos.z,now,p)) {
+                if(!flow.rising() || p.verticalSpeed()<=0) continue;
+                double x=flow.centerX(p,now), z=flow.centerZ(p,now);
+                if((x-pos.x)*(x-pos.x)+(z-pos.z)*(z-pos.z)>384*384) continue;
+                double y=flow.groundY()+.55*(flow.top(p,now)-flow.groundY());
+                double strength=ZonalWindModel.clamp(flow.velocity(p,now,x,y,z)/p.verticalSpeed());
+                if(strength<.02) continue;
+                marks.add(new net.aste.aeroworks.network.WindVisualPayload.Flow(x,y,z,(float)(p.diameter()*.3),(float)strength,flow.seed()));
+            }
+            marks.sort(java.util.Comparator.comparingDouble(f -> (f.x()-pos.x)*(f.x()-pos.x)+(f.z()-pos.z)*(f.z()-pos.z)));
+            if(marks.size()>net.aste.aeroworks.network.WindVisualPayload.MAX_FLOWS) {
+                marks.subList(net.aste.aeroworks.network.WindVisualPayload.MAX_FLOWS,marks.size()).clear();
+            }
+            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
+                    new net.aste.aeroworks.network.WindVisualPayload(level.dimension().location(),shake,marks));
+        }
     }
     /** Read-only diagnostics for the nearest aircraft; no terrain/cloud work on command invocation. */
     @SubscribeEvent

@@ -264,3 +264,11 @@ def testFlightWind = tasks.register('testFlightWind', JavaExec) {
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
 }
 tasks.named('check') { dependsOn testFlightWind }
+
+def testWindVisualPayload = tasks.register('testWindVisualPayload', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.WindVisualPayloadTest'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testWindVisualPayload }

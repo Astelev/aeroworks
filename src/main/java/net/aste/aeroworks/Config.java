@@ -157,6 +157,7 @@ public class Config {
     public static final ModConfigSpec.DoubleValue TURB_GUST;
     public static final ModConfigSpec.DoubleValue TURB_TORQUE;
     public static final ModConfigSpec.DoubleValue TURB_PERIOD;
+    public static final ModConfigSpec.DoubleValue TURB_ROCKING_PERIOD;
     public static final ModConfigSpec.DoubleValue TURB_FADE;
     public static final ModConfigSpec.DoubleValue STORM_TURN;
     public static final ModConfigSpec.DoubleValue STORM_TURB;
@@ -178,6 +179,8 @@ public class Config {
                 .defineInRange("rocking_torque_per_sail", 0.15, 0.0, 10000.0);
         TURB_PERIOD = BUILDER.comment("Интервал резкого плавного изменения направления порыва.")
                 .defineInRange("gust_period_seconds", 0.4, 0.05, 30.0);
+        TURB_ROCKING_PERIOD = BUILDER.comment("Интервал обязательной смены знака вращающего момента, секунды. Полный цикл вдвое длиннее.")
+                .defineInRange("rocking_period_seconds", 0.16, 0.08, 2.0);
         TURB_FADE = BUILDER.comment("Путь плавного входа и выхода из эпизода.")
                 .defineInRange("fade_distance", 10.0, 0.1, 10000.0);
         STORM_TURN = BUILDER.comment("Во сколько раз чаще случайные повороты ветра в полной грозе.")

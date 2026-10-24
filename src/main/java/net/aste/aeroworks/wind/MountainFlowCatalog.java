@@ -23,10 +23,16 @@ final class MountainFlowCatalog {
         if (cache.size()>4096) cache.clear();
     }
     MountainFlow[] nearby(ServerLevel level, long seed, double x, double z, double now, WindEffectsParameters p) {
+        // Cover every column whose drifting centre can reach this position, even with custom sizes.
+        return around(level,seed,x,z,now,p,p.diameter()/2+p.driftRadius());
+    }
+    MountainFlow[] visible(ServerLevel level,long seed,double x,double z,double now,WindEffectsParameters p) {
+        return around(level,seed,x,z,now,p,384+p.driftRadius());
+    }
+    private MountainFlow[] around(ServerLevel level,long seed,double x,double z,double now,WindEffectsParameters p,double range) {
         if (!p.mountainEnabled()) return EMPTY;
         int cx=Mth.floor(x/p.spacing()), cz=Mth.floor(z/p.spacing());
-        // Cover every column whose drifting centre can reach this position, even with custom sizes.
-        int reach=(int)Math.ceil((p.diameter()/2+p.driftRadius())/p.spacing());
+        int reach=(int)Math.ceil(range/p.spacing());
         var flows=new ArrayList<MountainFlow>();
         for(int dx=-reach;dx<=reach;dx++) for(int dz=-reach;dz<=reach;dz++) {
             var cell=new Cell(cx+dx,cz+dz);

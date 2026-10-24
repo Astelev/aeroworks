@@ -15,9 +15,9 @@ public record TurbulenceEpisode(long seed, double started, double progress, doub
         double gust=strength*p.gustSpeed()/norm;
         out.x+=x*gust; out.y+=y*gust; out.z+=z*gust;
         double torque=strength*p.rockingTorquePerSail()*sails;
-        out.torqueX=wave(seed^0x5a0fL,clock*.73)*torque;
-        out.torqueY=wave(seed^0x91afL,clock*.61)*torque*.4;
-        out.torqueZ=wave(seed^0x631cL,clock*.89)*torque;
+        out.torqueX=AlternatingWindPulse.sample(seed^0x5a0fL,Math.max(0,time-started),p.rockingPeriod())*torque;
+        out.torqueY=AlternatingWindPulse.sample(seed^0x91afL,Math.max(0,time-started)+p.rockingPeriod()*.31,p.rockingPeriod())*torque*.4;
+        out.torqueZ=AlternatingWindPulse.sample(seed^0x631cL,Math.max(0,time-started)+p.rockingPeriod()*.64,p.rockingPeriod())*torque;
     }
     private static double wave(long seed,double time) {
         long epoch=(long)Math.floor(time);

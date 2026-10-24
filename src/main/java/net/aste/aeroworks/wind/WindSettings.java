@@ -45,6 +45,7 @@ public final class WindSettings {
                     Config.TURB_GUST.get(),
                     Config.TURB_TORQUE.get(),
                     Config.TURB_PERIOD.get(),
+                    Config.TURB_ROCKING_PERIOD.get(),
                     Config.TURB_FADE.get(),
                     Config.STORM_TURN.get(),
                     Config.STORM_TURB.get());
