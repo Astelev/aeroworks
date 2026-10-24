@@ -32,13 +32,13 @@ public final class FailureProfilesTest {
         near(FailureBlockProfile.parse(rows.get(1),R,300,.02).profile().chancePerStart(),.02);
         near(FailureBlockProfile.parse(rows.get(1),lower,300,.001).profile().chancePerStart(),.001);
         near(FailureBlockProfile.parse(rows.get(0),R,300,.02).profile().chancePerStart(),0);
-        check(FailureBlockProfile.migrate(row,R,300,.02).equals(row),"New profiles remain untouched");
+        check(FailureBlockProfile.migrate(row).equals(row),"New profiles remain untouched");
         String legacy="create:mechanical_bearing; base_chance_per_minute=0.6; chance_per_start=0.04; rpm_risk_weight=0; repair_grace_seconds=5";
-        String migrated=FailureBlockProfile.migrate(legacy,R,300,.02);
+        String migrated=FailureBlockProfile.migrate(legacy);
         var old=FailureBlockProfile.parse(migrated,R,300,.02).profile();
         near(old.risk().baseChancePerMinute(),.6);near(old.chancePerStart(),.04);near(old.risk().rpmWeight(),0);check(old.repairGraceTicks()==100,"Legacy protection converted");
-        check(FailureBlockProfile.migrate(migrated,R,300,.02).equals(migrated),"Migration must be idempotent");
-        var oldWithoutStart=FailureBlockProfile.parse(FailureBlockProfile.migrate("create:test; base_chance_per_minute=.3",R,300,.02),R,300,.02).profile();
+        check(FailureBlockProfile.migrate(migrated).equals(migrated),"Migration must be idempotent");
+        var oldWithoutStart=FailureBlockProfile.parse(FailureBlockProfile.migrate("create:test; base_chance_per_minute=.3"),R,300,.02).profile();
         near(oldWithoutStart.chancePerStart(),0);
         var globals=new FailureRisk(.05,128,2,80,3,256,512,4,16,512);
         var neutral=FailureBlockProfile.parse("create:test",globals,600,.005).profile();
@@ -48,7 +48,12 @@ public final class FailureProfilesTest {
         near(factors.altitudeStart(),128);near(factors.altitudeScale(),1024);near(factors.altitudeWeight(),8);near(factors.turbulenceMultiplier(),8);near(factors.maximumMultiplier(),256);
 
         near(FailureBlockProfile.parse(migrated,lower,300,.01).profile().risk().baseChancePerMinute(),.2);
-        near(FailureBlockProfile.parse(FailureBlockProfile.migrate(legacy,zero,300,0),zero,300,0).profile().probability(16,16,0,64,false,1,true),0);
+        var tuned=FailureBlockProfile.parse(FailureBlockProfile.migrate(legacy),lower,300,.01).profile();
+        near(tuned.risk().baseChancePerMinute(),.2);near(tuned.chancePerStart(),.02);
+        var generated=FailureBlockProfile.parse(FailureBlockProfile.migrate("create:test; base_chance_per_minute=0.3; chance_per_start=0"),lower,300,.01).profile();
+        near(generated.risk().baseChancePerMinute(),.1);near(generated.chancePerStart(),0);
+
+        near(FailureBlockProfile.parse(FailureBlockProfile.migrate(legacy),zero,300,0).profile().probability(16,16,0,64,false,1,true),0);
         for(String bad:List.of("bad id; chance_per_start_factor=1","create:test; typo=1","create:test; chance_per_start_factor=NaN", "create:test; chance_per_start_factor=-1", "create:test; reference_rpm_factor=0", "create:test; count_reversals_as_start=maybe", "create:test; repair_grace_seconds_factor=Infinity", "create:test; chance_per_start_factor=1; chance_per_start_factor=2", "create:test; base_chance_per_minute=.3")) {
             boolean rejected=false;try{FailureBlockProfile.parse(bad,R,300);}catch(RuntimeException expected){rejected=true;}
             check(rejected,"Reject malformed factor: "+bad);

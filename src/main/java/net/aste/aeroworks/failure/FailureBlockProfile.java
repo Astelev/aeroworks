@@ -51,13 +51,14 @@ public record FailureBlockProfile(FailureRisk risk,double chancePerStart,int rep
         if(!Double.isFinite(result))throw new IllegalArgumentException("Factor product overflow: "+key);
         return result;
     }
-    /** Convert old absolute entries once. Current values are retained where a nonzero common baseline permits it. */
-    public static String migrate(String text,FailureRisk defaults,int graceTicks,double startChance) {
+    /** Convert old absolutes relative to the original shipped defaults so already-tuned globals take effect. */
+    public static String migrate(String text) {
         String id=idOf(text);
         if(id==null)return text;
-        double[] common={defaults.baseChancePerMinute(),defaults.referenceRPM(),defaults.rpmWeight(),defaults.referenceSpeed(),
-                defaults.speedWeight(),defaults.altitudeStart(),defaults.altitudeScale(),defaults.altitudeWeight(),
-                defaults.turbulenceMultiplier(),defaults.maximumMultiplier(),startChance,graceTicks/20.0};
+        var baseline=FailureRisk.DEFAULT;
+        double[] common={baseline.baseChancePerMinute(),baseline.referenceRPM(),baseline.rpmWeight(),baseline.referenceSpeed(),
+                baseline.speedWeight(),baseline.altitudeStart(),baseline.altitudeScale(),baseline.altitudeWeight(),
+                baseline.turbulenceMultiplier(),baseline.maximumMultiplier(),.02,15};
         String[] parts=text.split(";",-1);
         boolean changed=false;
         for(int i=1;i<parts.length;i++) {
@@ -67,8 +68,7 @@ public record FailureBlockProfile(FailureRisk risk,double chancePerStart,int rep
             if(index<0||index>=common.length)continue;
             double old=Double.parseDouble(pair[1].trim());
             if(!Double.isFinite(old))throw new IllegalArgumentException("Non-finite legacy value");
-            // A zero global value must stay zero; it cannot be bypassed by an individual profile.
-            double factor=common[index]==0?(old==0?0:1):old/common[index];
+            double factor=old/common[index];
             if(factor<0||!Double.isFinite(factor))throw new IllegalArgumentException("Legacy value cannot become a non-negative factor");
             parts[i]=" "+KEYS.get(index)+"_factor="+factor;
             changed=true;

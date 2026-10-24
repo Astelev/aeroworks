@@ -40,7 +40,7 @@ public final class FailureSettings {
         double startChance=Config.FAILURE_START_CHANCE.get();
         var migrated=new java.util.ArrayList<String>();
         for(var text:configured) {
-            try {migrated.add(FailureBlockProfile.migrate(text,risk,grace,startChance));}
+            try {migrated.add(FailureBlockProfile.migrate(text));}
             catch(RuntimeException error) {migrated.add(text);Aeroworks.LOGGER.warn("Cannot migrate failure profile {}: {}",text,error.getMessage());}
         }
         var entries=FailureBlockProfile.completeEntries(migrated,java.util.List.copyOf(Config.FAILURE_BLOCKS.get()),risk);

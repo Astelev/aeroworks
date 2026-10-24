@@ -92,7 +92,7 @@ assert 'FailureBlockProfile.completeEntries' in settings and 'if(added)' in sett
 assert 'FailureBlockProfile.parse' not in model
 print('Per-block profiles: cached block lookup, idempotent generated config, per-tick work observation, short-stroke retention, immediate start rolls and duplicate-tick guard verified')
 
-assert 'FailureBlockProfile.migrate(text,risk,grace,startChance)' in settings
+assert 'FailureBlockProfile.migrate(text)' in settings
 assert 'FailureBlockProfile.parse(text,risk,grace,startChance)' in settings
 assert 'Config.FAILURE_START_CHANCE.get()' in settings
 assert 'boolean added=!entries.equals(configured)' in settings
