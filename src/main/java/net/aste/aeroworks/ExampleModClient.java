@@ -13,6 +13,11 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 public class ExampleModClient {
     public ExampleModClient(ModContainer container, net.neoforged.bus.api.IEventBus modEventBus) {
         modEventBus.addListener(ExampleModClient::onClientSetup);
+        net.aste.aeroworks.failure.FailureVisuals.setClientTick(net.aste.aeroworks.client.FailureSmoke::tick);
+        modEventBus.addListener(net.aste.aeroworks.client.WindVisualEvents::registerParticles);
+        net.aste.aeroworks.network.WindVisualNetwork.setReceiver(net.aste.aeroworks.client.WindVisualEvents::receive);
+        container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT,
+                net.aste.aeroworks.client.WindVisualConfig.SPEC,"aste_aeroworks-wind-client.toml");
         modEventBus.addListener(net.aste.aeroworks.client.CloudFogPostProcess::registerReloadListener);
         container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT,
                 net.aste.aeroworks.client.CloudFogConfig.SPEC);

@@ -12,5 +12,13 @@
   ],
   "injectors": {
     "defaultRequire": 1
-  }
+  },
+  "mixins": [
+    "wind.ServerSubLevelWindMixin",
+    "atmosphere.DimensionAtmosphereMixin",
+    "atmosphere.PropellerAtmosphereMixin",
+    "failure.KineticFailureMixin",
+    "failure.PropellerFailureMixin",
+    "failure.SyncedFailureInvoker"
+  ]
 }

@@ -1,0 +1,5 @@
+{
+  "aste_aeroworks.failure.failed": "Механический отказ",
+  "aste_aeroworks.failure.repair_hint": "Починка: нажмите ключом по блоку",
+  "aste_aeroworks.failure.repaired": "Блок отремонтирован"
+}

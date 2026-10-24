@@ -46,7 +46,14 @@ void main() {
             backgroundDistance = cloud.a > 0.0 ? 1.0e10 : dhDistance;
         }
     }
-    vec3 color = mix(original.rgb, FogColor, fogAt(backgroundDistance));
+    float backgroundFog = fogAt(backgroundDistance);
+    // At full immersion every cloud layer is also fully fogged. Skip the
+    // transparency buffers and compositing math for already opaque fog pixels.
+    if (backgroundFog >= 1.0 && Strength >= 1.0) {
+        fragColor = vec4(FogColor, 1.0);
+        return;
+    }
+    vec3 color = mix(original.rgb, FogColor, backgroundFog);
     if (HasDhDepth != 0 && (dhDistance < mainDistance || !hasMainSurface)) {
         // Shade each layer BEFORE compositing it. At full immersion dissolve
         // even nearby cloud mesh faces into the volumetric fog color, without

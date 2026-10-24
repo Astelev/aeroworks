@@ -27,6 +27,18 @@ jobs:
       - name: Verify particle hook against mapped NeoForge bytecode
         run: python3 scripts/check_particle_hook.py
 
+      - name: Verify Sable wind hooks and Lift Patch contract
+        run: python3 scripts/check_wind_hooks.py
+
+      - name: Verify atmosphere pressure and drag contracts
+        run: python3 scripts/check_atmosphere_hooks.py
+
+      - name: Verify Simple Clouds weather wind contracts
+        run: python3 scripts/check_weather_wind_hooks.py
+
+      - name: Verify mechanical failure contracts
+        run: python3 scripts/check_failure_hooks.py
+
       - name: Test cloud fog shader with software OpenGL
         run: |
           sudo apt-get update -qq

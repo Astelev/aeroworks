@@ -1,0 +1,5 @@
+{
+  "aste_aeroworks.failure.failed": "Mechanical failure",
+  "aste_aeroworks.failure.repair_hint": "Repair: right-click the block with a wrench",
+  "aste_aeroworks.failure.repaired": "Block repaired"
+}
