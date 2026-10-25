@@ -131,6 +131,7 @@ def sableCompileLibraries = files(fileTree(sableCompileDir) { include '*.jar' })
 
 dependencies {
     compileOnly files(sableJar)
+    compileOnly files('libs/create-aeronautics-lift-patch-1.1.0.jar')
     compileOnly sableCompileLibraries
     testImplementation sableCompileLibraries
     localRuntime files(sableJar, 'libs/create-aeronautics-lift-patch-1.1.0.jar')
@@ -303,3 +304,12 @@ def testFailureProfiles = tasks.register('testFailureProfiles', JavaExec) {
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
 }
 tasks.named('check') { dependsOn testFailureProfiles }
+
+
+def testSurfaceAerodynamics = tasks.register('testSurfaceAerodynamics', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.SurfaceAerodynamicsTest'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testSurfaceAerodynamics }

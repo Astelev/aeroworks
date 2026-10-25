@@ -1,6 +1,8 @@
 package net.aste.aeroworks.mixin.wind;
 
 import dev.ryanhcode.sable.api.block.BlockSubLevelLiftProvider;
+import dev.ryanhcode.sable.api.physics.handle.RigidBodyHandle;
+import net.aste.aeroworks.aerodynamics.AerodynamicStep;
 import dev.ryanhcode.sable.companion.math.Pose3d;
 import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import dev.ryanhcode.sable.physics.config.dimension_physics.DimensionPhysicsData;
@@ -17,14 +19,16 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Adjust the two callers, never overwrite Sable's or Lift Patch's aerodynamic formulas. */
+/** Shared body-step wind plus passive aerodynamics; the original provider remains an explicit fallback. */
 @Mixin(value = ServerSubLevel.class, remap = false)
 public abstract class ServerSubLevelWindMixin {
     @Unique private final StepWind aste_aeroworks$wind = new StepWind();
+    @Unique private final AerodynamicStep aste_aeroworks$aerodynamics = new AerodynamicStep();
 
     @Inject(method = "prePhysicsTick", at = @At("HEAD"))
     private void aste_aeroworks$beginWindStep(CallbackInfo ci) {
         aste_aeroworks$wind.begin();
+        aste_aeroworks$aerodynamics.begin();
     }
 
     @Redirect(method = "prePhysicsTick", at = @At(value = "INVOKE",
@@ -51,8 +55,22 @@ public abstract class ServerSubLevelWindMixin {
                 }
             }
         }
+        if(aste_aeroworks$aerodynamics.enabled()) {
+            aste_aeroworks$aerodynamics.add(provider,context,subLevel,localPose,aste_aeroworks$wind.aerodynamicTimeStep(timeStep),
+                    aste_aeroworks$wind.velocity(linearVelocity),angularVelocity,group);
+            return;
+        }
         provider.sable$contributeLiftAndDrag(context, subLevel, localPose, aste_aeroworks$wind.aerodynamicTimeStep(timeStep),
                 aste_aeroworks$wind.velocity(linearVelocity), angularVelocity,
                 linearImpulse, angularImpulse, group);
     }
+    @Redirect(method="prePhysicsTick",at=@At(value="INVOKE",target=
+            "Ldev/ryanhcode/sable/api/physics/handle/RigidBodyHandle;applyLinearAndAngularImpulse(Lorg/joml/Vector3dc;Lorg/joml/Vector3dc;Z)V"),
+            require=1,expect=1,allow=1)
+    private void aste_aeroworks$finishAerodynamics(RigidBodyHandle handle,Vector3dc linear,Vector3dc angular,boolean wakeUp) {
+        // Sable's two local accumulators are mutable Vector3d values, confirmed by the bytecode contract check.
+        aste_aeroworks$aerodynamics.finish((ServerSubLevel)(Object)this,(Vector3d)linear,(Vector3d)angular);
+        handle.applyLinearAndAngularImpulse(linear,angular,wakeUp);
+    }
+
 }
