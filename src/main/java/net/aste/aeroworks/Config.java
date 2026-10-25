@@ -49,6 +49,20 @@ public class Config {
                 .defineInRange("sail_pressure_coefficient", 1.0, 0.0, 10.0);
         BUILDER.pop();
     }
+    public static final ModConfigSpec.BooleanValue CONSERVATIVE_AERODYNAMICS;
+    public static final ModConfigSpec.BooleanValue AERODYNAMIC_SOFTCAPS;
+    static {
+        BUILDER.push("aerodynamics");
+        CONSERVATIVE_AERODYNAMICS=BUILDER.comment("Пассивная квадратичная аэродинамика: подъёмная сила поперёк потока, сопротивление против него.",
+                "Исключает самопроизвольную прибавку энергии поверхностями в неподвижном воздухе; учитывает вращение и шаг интеграции.",
+                "Сохраняет множители liftTuning/parallelDragTuning/directionlessDragTuning Lift Patch.",
+                "false возвращает исходные формулы Sable/Lift Patch.").define("conservative_surfaces",true);
+        AERODYNAMIC_SOFTCAPS=BUILDER.comment("Использовать ограничители liftSoftCap/normalDragSoftCap Lift Patch в новой модели.",
+                "По умолчанию false: силы строго пропорциональны квадрату скорости при фиксированном угле и плотности.",
+                "При true рост на больших скоростях насыщается; энергетическая защита действует независимо от ограничителей.")
+                .define("use_lift_patch_softcaps",false);
+        BUILDER.pop();
+    }
     public static final ModConfigSpec.BooleanValue ATMOSPHERE_ENABLED;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> ATMOSPHERE_DIMENSIONS;
     public static final ModConfigSpec.DoubleValue ATMOSPHERE_REFERENCE_HEIGHT;

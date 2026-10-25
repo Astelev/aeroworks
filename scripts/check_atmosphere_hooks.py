@@ -69,3 +69,10 @@ assert {v['id'] for v in blocks}=={'aeronautics:wooden_propeller','aeronautics:a
 assert all(v.get('required') is False for v in blocks)
 assert 'atmosphere.PropellerAtmosphereMixin' in json.loads((root/'src/main/resources/aeroworks.mixins.json').read_text())['mixins']
 print('Propeller hooks: projected world height, one existing pressure sample, tagged propellers only, retained base pressure and no extra chunk/block reads verified')
+
+# The default passive solver uses the same shared pressure function at the actual world-space surface point.
+aero=(root/'src/main/java/net/aste/aeroworks/aerodynamics/AerodynamicStep.java').read_text()
+assert aero.count('DimensionPhysicsData.getAirPressure(')==1
+assert aero.index('pose.transformPosition(point,worldPoint)')<aero.index('DimensionPhysicsData.getAirPressure(body.getLevel(),worldPoint)')
+assert 'SurfaceAerodynamics.calculate(velocity,normal,density,' in aero
+print('Passive solver atmosphere: one shared density sample at the transformed surface position, supplied to lift and both drag coefficients')
