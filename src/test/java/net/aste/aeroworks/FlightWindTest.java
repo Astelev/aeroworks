@@ -7,8 +7,8 @@ public final class FlightWindTest {
     private static void check(boolean ok,String why) { if(!ok) throw new AssertionError(why); }
     private static void near(double a,double b) { check(Math.abs(a-b)<1e-8,"Mismatch "+a+" / "+b); }
     public static void main(String[] args) {
-        mountains(); gusts(); lifecycle(); frameIndependence(); storms(); alternatingRocking(); cameraMotion();
-        System.out.println("Flight wind: mountain boundaries/drift, bounded gusts, per-aircraft torque, distance lifecycle, timestep independence and storm cadence passed");
+        mountains(); gusts(); lifecycle(); lowSpeed(); frameIndependence(); storms(); alternatingRocking(); cameraMotion();
+        System.out.println("Flight wind: mountain boundaries/drift, bounded gusts, per-aircraft torque, distance lifecycle, low-speed cancellation/cooldown, timestep independence and storm cadence passed");
     }
     private static void mountains() {
         boolean up=false,down=false;
@@ -48,27 +48,53 @@ public final class FlightWindTest {
     }
     private static void lifecycle() {
         var tracker=new TurbulenceTracker(123);
-        for(int i=0;i<1000;i++)tracker.advance(10,0,1,i*.05,P);
+        for(int i=0;i<1000;i++)tracker.advance(10,10,0,1,i*.05,P);
         check(tracker.snapshot()==null,"Cannot start outside cloud");
-        for(int i=0;i<1000;i++)tracker.advance(0,1,1,i*.05,P);
+        for(int i=0;i<1000;i++)tracker.advance(0,10,1,1,i*.05,P);
         check(tracker.snapshot()==null,"Hovering does not accumulate distance");
         int walked=0;
-        while(tracker.snapshot()==null && walked++<10000)tracker.advance(1,1,0,50,P);
+        while(tracker.snapshot()==null && walked++<10000)tracker.advance(1,10,1,0,50,P);
         check(tracker.snapshot()!=null,"Cloud traversal can start episode");
         var start=tracker.snapshot();
-        tracker.advance(20,0,0,51,P);
+        tracker.advance(20,10,0,0,51,P);
         check(tracker.snapshot()!=null,"Episode follows aircraft outside cloud");
         near(tracker.snapshot().progress(),start.progress()+20);
-        tracker.advance(1000,0,0,52,P);
+        tracker.advance(1000,10,0,0,52,P);
         check(tracker.snapshot()==null,"Episode ends by flown distance");
-        tracker.advance(Double.NaN,1,1,53,P);check(tracker.snapshot()==null,"Invalid motion resets safely");
+        tracker.advance(Double.NaN,10,1,1,53,P);check(tracker.snapshot()==null,"Invalid motion resets safely");
         tracker.reset();check(tracker.snapshot()==null,"Teleport reset");
+    }
+    private static TurbulenceTracker activeTracker() {
+        var tracker=new TurbulenceTracker(123);
+        for(int i=0;i<10000 && tracker.snapshot()==null;i++)tracker.advance(1,10,1,0,i*.05,P);
+        check(tracker.snapshot()!=null,"Test setup: active cloud episode");
+        return tracker;
+    }
+    private static void lowSpeed() {
+        var tracker=activeTracker();
+        var episode=tracker.snapshot();
+        tracker.advance(0,6,0,0,60,P);
+        check(tracker.snapshot()!=null,"Exactly 6 m/s retains turbulence");
+        tracker.advance(0,5.999,1,1,61,P);
+        check(tracker.snapshot()==null,"Below threshold ends the episode even without distance travelled");
+        for(int i=0;i<1000;i++)tracker.advance(1,5,1,1,62+i*.05,P);
+        check(tracker.snapshot()==null,"Slow cloud movement cannot start another episode or consume cooldown");
+        tracker.advance(P.cooldownDistance()-1,10,1,1,120,P);
+        check(tracker.snapshot()==null,"A stopped episode does not resume when accelerating; full cooldown remains");
+        tracker.advance(2,10,0,0,121,P);
+        check(tracker.snapshot()==null,"Accelerating outside clouds cannot restore the old episode");
+        for(int i=0;i<10000 && tracker.snapshot()==null;i++)tracker.advance(1,10,1,0,122+i*.05,P);
+        check(tracker.snapshot()!=null && tracker.snapshot().seed()!=episode.seed(),"Later cloud traversal starts a new episode");
+        var invalid=activeTracker();invalid.advance(0,Double.NaN,1,1,70,P);
+        check(invalid.snapshot()==null,"Invalid speed stops effects safely");
+        var landed=activeTracker();landed.advance(0,0,1,1,70,P);
+        check(landed.snapshot()==null,"Stationary aircraft loses turbulence immediately");
     }
     private static void frameIndependence() {
         for(int seed=1;seed<100;seed++) {
             var a=new TurbulenceTracker(seed);var b=new TurbulenceTracker(seed);
-            for(int i=0;i<1000;i++)a.advance(.1,.7,.8,1,P);
-            b.advance(100,.7,.8,1,P);
+            for(int i=0;i<1000;i++)a.advance(.1,10,.7,.8,1,P);
+            b.advance(100,10,.7,.8,1,P);
             var ea=a.snapshot();var eb=b.snapshot();
             check((ea==null)==(eb==null),"Distance hazard independent of tick subdivision");
             if(ea!=null) {near(ea.progress(),eb.progress());near(ea.length(),eb.length());check(ea.seed()==eb.seed(),"Same episode");}

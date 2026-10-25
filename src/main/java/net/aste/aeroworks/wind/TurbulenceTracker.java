@@ -2,6 +2,7 @@ package net.aste.aeroworks.wind;
 
 /** Server-thread distance hazard process. State is never read directly by the physics thread. */
 public final class TurbulenceTracker {
+    public static final double MINIMUM_SPEED=6; // World-space speed in metres/second, including vertical motion.
     private final long seed;
     private long serial;
     private double hazard, cooldown, progress, length, started;
@@ -9,9 +10,14 @@ public final class TurbulenceTracker {
     public TurbulenceTracker(long seed) { this.seed=seed; hazard=nextHazard(); }
     private double nextHazard() { return -Math.log(Math.max(1e-12,ZonalWindModel.unitHash(seed^(serial*0x6a09e667f3bcc909L)))); }
     public void reset() { active=false; progress=0; cooldown=0; serial++; hazard=nextHazard(); }
-    public void advance(double meters,double exposure,double storm,double now,WindEffectsParameters p) {
+    public void advance(double meters,double speed,double exposure,double storm,double now,WindEffectsParameters p) {
         if(!p.turbulenceEnabled()) { reset(); return; }
         if(!Double.isFinite(meters) || meters<0) { reset(); return; }
+        if(!Double.isFinite(speed) || speed<MINIMUM_SPEED) {
+            // End, rather than pause, a landed/stalled episode. Slow motion cannot trigger another one.
+            if(active) { active=false; progress=0; cooldown=p.cooldownDistance(); }
+            return;
+        }
         double rate=-Math.log1p(-p.chancePer100Blocks())/100*ZonalWindModel.clamp(exposure)
                 *(1+ZonalWindModel.clamp(storm)*(p.stormChanceMultiplier()-1));
         while(meters>1e-10) {

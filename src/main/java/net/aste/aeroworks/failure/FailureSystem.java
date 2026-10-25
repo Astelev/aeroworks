@@ -4,6 +4,8 @@ import dev.ryanhcode.sable.Sable;
 import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import net.aste.aeroworks.wind.WindWorlds;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import org.joml.Vector3d;
 
@@ -47,6 +49,11 @@ public final class FailureSystem {
         boolean turbulent=WindWorlds.isTurbulent(level,serverBody.getRuntimeId());
         double probability=profile.probability(work.averageRPM(),rpm,speed,pos.y,turbulent,work.seconds(),startRoll);
         work.clearWindow();
-        if(probability>0 && state.tryFail(probability,level.random.nextDouble()))access.aste_aeroworks$syncFailure();
+        if(probability>0 && state.tryFail(probability,level.random.nextDouble())) {
+            access.aste_aeroworks$syncFailure();
+            // pos is already in world space. Broadcast only the transition, never saved/ongoing failures.
+            level.playSound(null,pos.x,pos.y,pos.z,SoundEvents.IRON_GOLEM_DAMAGE,SoundSource.BLOCKS,.9f,.65f);
+            level.playSound(null,pos.x,pos.y,pos.z,SoundEvents.SHIELD_BREAK,SoundSource.BLOCKS,.55f,.8f);
+        }
     }
 }
