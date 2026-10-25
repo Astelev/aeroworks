@@ -37,7 +37,7 @@ assert 'lever.set(point).sub(body.getMassTracker().getCenterOfMass())' in model
 assert 'angularVelocity.cross(worldLever,velocity).add(relativeVelocity)' in model
 assert 'pose.transformNormalInverse(velocity)' in model
 assert 'group.totalLift().add(force.lift)' in model and 'group.totalDrag().add(force.drag)' in model
-assert model.index('passivity.correct(')<model.index('linearImpulse.add(impulse)')
+assert model.index('passivity.integrate(')<model.index('linearImpulse.add(impulse)')
 assert not any(word in model for word in ('getPhysicsHandle(', 'getChunk(', 'WindFields.sample'))
 for name in ('getMass','getInertiaTensor','getInverseInertiaTensor','getCenterOfMass'):
     assert name+'(' in inspect(sable,'dev.ryanhcode.sable.api.physics.mass.MassData')
@@ -45,3 +45,11 @@ config=inspect(patch,'com.aerofix.ldfix.AerofixConfig')
 for name in ('LIFT_TUNING','PARALLEL_DRAG_TUNING','DIRECTIONLESS_DRAG_TUNING','LIFT_SOFTCAP','NORMAL_DRAG_SOFTCAP'):
     assert name in config
 print('Passive aerodynamics: ordinary/nested callers, final local impulse submission, COM lever/rotating airflow, debug groups, mass/inertia APIs and optional Lift Patch tuning verified')
+
+assert 'liftCap=patch?LiftPatchTuning.liftCap():40' in model
+assert 'normalCap=patch?LiftPatchTuning.normalCap():50' in model
+assert 'Config.AERODYNAMIC_SOFTCAPS' not in model
+solver=(root/'src/main/java/net/aste/aeroworks/aerodynamics/PassiveImpulse.java').read_text()
+assert 'Math.sqrt(target/proposed)' not in solver and 'addSurface(' in solver
+assert 'passivity.addSurface(lever,velocity,normal,force.lift,force.normalDamping,force.baseDamping,timeStep)' in model
+print('Control compatibility: unconditional Lift Patch caps, two-sided normal-pressure operator and coupled midpoint integration without whole-body rescaling verified')

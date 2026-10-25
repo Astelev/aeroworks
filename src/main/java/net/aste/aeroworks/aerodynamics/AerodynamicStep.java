@@ -9,18 +9,18 @@ import net.neoforged.fml.ModList;
 import org.joml.Vector3d;
 import org.joml.Vector3dc;
 
-/** Per-body scratch: two ordinary/nested call sites share one passive impulse and one energy check. */
+/** Per-body scratch: two ordinary/nested call sites share one passive impulse and one midpoint integration. */
 public final class AerodynamicStep {
     private final SurfaceAerodynamics.Result force=new SurfaceAerodynamics.Result();
     private final PassiveImpulse passivity=new PassiveImpulse();
     private final Vector3d impulse=new Vector3d(),torque=new Vector3d();
     private final Vector3d normal=new Vector3d(),point=new Vector3d(),worldPoint=new Vector3d();
-    private final Vector3d lever=new Vector3d(),worldLever=new Vector3d(),velocity=new Vector3d(),temporary=new Vector3d();
+    private final Vector3d lever=new Vector3d(),worldLever=new Vector3d(),velocity=new Vector3d();
     private final Vector3d airVelocity=new Vector3d(),spin=new Vector3d();
     private boolean enabled,prepared;
     private double liftTuning,normalTuning,baseTuning,liftCap,normalCap;
     public void begin() {
-        enabled=Config.CONSERVATIVE_AERODYNAMICS.get();prepared=false;impulse.zero();torque.zero();
+        enabled=Config.CONSERVATIVE_AERODYNAMICS.get();prepared=false;impulse.zero();torque.zero();passivity.begin();
     }
     public boolean enabled() {return enabled;}
     public void add(BlockSubLevelLiftProvider provider,BlockSubLevelLiftProvider.LiftProviderContext context,
@@ -35,9 +35,9 @@ public final class AerodynamicStep {
             liftTuning=patch?LiftPatchTuning.lift():1;
             normalTuning=patch?LiftPatchTuning.normalDrag():1;
             baseTuning=patch?LiftPatchTuning.baseDrag():1;
-            boolean caps=patch && Config.AERODYNAMIC_SOFTCAPS.get();
-            liftCap=caps?LiftPatchTuning.liftCap():Double.POSITIVE_INFINITY;
-            normalCap=caps?LiftPatchTuning.normalCap():Double.POSITIVE_INFINITY;
+            // Keep Lift Patch's limits unconditionally, including configs written by the previous build.
+            liftCap=patch?LiftPatchTuning.liftCap():40;
+            normalCap=patch?LiftPatchTuning.normalCap():50;
             prepared=true;
         }
         var pos=context.pos();var direction=context.dir();
@@ -54,10 +54,8 @@ public final class AerodynamicStep {
         SurfaceAerodynamics.calculate(velocity,normal,density,provider.sable$getLiftScalar()*liftTuning,
                 provider.sable$getParallelDragScalar()*normalTuning,provider.sable$getDirectionlessDragScalar()*baseTuning,
                 liftCap,normalCap,force);
+        passivity.addSurface(lever,velocity,normal,force.lift,force.normalDamping,force.baseDamping,timeStep);
         force.lift.mul(timeStep);force.drag.mul(timeStep);
-        temporary.set(force.lift).add(force.drag);
-        impulse.add(temporary);
-        lever.cross(temporary,temporary);torque.add(temporary);
         if(group!=null) {
             double lift=force.lift.length(),drag=force.drag.length();
             group.totalLift().add(force.lift);group.totalDrag().add(force.drag);
@@ -68,7 +66,7 @@ public final class AerodynamicStep {
     public void finish(ServerSubLevel body,Vector3d linearImpulse,Vector3d angularImpulse) {
         if(!enabled||!prepared)return;
         var mass=body.getMassTracker();
-        passivity.correct(mass.getMass(),mass.getInertiaTensor(),mass.getInverseInertiaTensor(),airVelocity,spin,impulse,torque);
+        passivity.integrate(mass.getMass(),mass.getInertiaTensor(),airVelocity,spin,impulse,torque);
         linearImpulse.add(impulse);angularImpulse.add(torque);
     }
 }

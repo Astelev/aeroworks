@@ -3,11 +3,12 @@ package net.aste.aeroworks.aerodynamics;
 import org.joml.Vector3d;
 import org.joml.Vector3dc;
 
-/** Passive cambered surface in still air: lift dot velocity = 0, drag dot velocity <= 0. */
+/** Cambered lift plus the original two-sided normal pressure force and isotropic skin drag. */
 public final class SurfaceAerodynamics {
     public static final class Result {
         public final Vector3d lift=new Vector3d(),drag=new Vector3d();
-        public void clear() {lift.zero();drag.zero();}
+        public double normalDamping,baseDamping;
+        public void clear() {lift.zero();drag.zero();normalDamping=baseDamping=0;}
     }
     private SurfaceAerodynamics() {}
     public static void calculate(Vector3dc velocity,Vector3dc normal,double density,double liftCoefficient,
@@ -26,10 +27,13 @@ public final class SurfaceAerodynamics {
             double magnitude=density*liftCoefficient*squaredSpeed(speed*projection,liftCap);
             out.lift.set(px,py,pz).mul(-magnitude/projection);
         }
-        double drag=density*(Math.max(0,baseDragCoefficient)*speed*speed
-                +Math.max(0,normalDragCoefficient)*squaredSpeed(speed*Math.abs(incidence),normalCap));
-        out.drag.set(ux,uy,uz).mul(-drag);
-        if(!out.lift.isFinite()||!out.drag.isFinite())out.clear();
+        // Symmetric sails have no cambered lift: this NORMAL force is their entire control authority.
+        double normalSpeed=speed*incidence;
+        double normalSquared=squaredSpeed(Math.abs(normalSpeed),normalCap);
+        out.normalDamping=Math.abs(normalSpeed)>1e-9?density*Math.max(0,normalDragCoefficient)*normalSquared/Math.abs(normalSpeed):0;
+        out.baseDamping=density*Math.max(0,baseDragCoefficient)*speed;
+        out.drag.set(nx,ny,nz).mul(-out.normalDamping*normalSpeed).fma(-out.baseDamping,velocity);
+        if(!out.lift.isFinite()||!out.drag.isFinite()||!Double.isFinite(out.normalDamping)||!Double.isFinite(out.baseDamping))out.clear();
     }
     private static double squaredSpeed(double speed,double cap) {
         if(Double.isInfinite(cap))return speed*speed;
