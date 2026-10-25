@@ -147,7 +147,7 @@ public final class WindWorlds {
                 double exposure=pos.y()>=previous.minY() && pos.y()<=previous.maxY() && previous.sails()>0
                         ? previous.exposure():0;
                 if(previous.sails()==0) flight.tracker.reset();
-                else flight.tracker.advance(distance,exposure,previous.weather().storm(now),now,effects);
+                else flight.tracker.advance(distance,body.latestLinearVelocity.length(),exposure,previous.weather().storm(now),now,effects);
                 bodies.put(id,new BodyWeather(previous.checked(),previous.weather(),previous.exposure(),previous.minY(),
                         previous.maxY(),previous.sails(),previous.flows(),flight.tracker.snapshot()));
             }
