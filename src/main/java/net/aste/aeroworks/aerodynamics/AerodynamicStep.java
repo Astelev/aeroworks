@@ -19,6 +19,7 @@ public final class AerodynamicStep {
     private final Vector3d airVelocity=new Vector3d(),spin=new Vector3d();
     private boolean enabled,prepared;
     private double liftTuning,normalTuning,baseTuning,liftCap,normalCap;
+    private double attachedAngle,separatedAngle,attachedDrag;
     public void begin() {
         enabled=Config.CONSERVATIVE_AERODYNAMICS.get();prepared=false;impulse.zero();torque.zero();passivity.begin();
     }
@@ -38,6 +39,9 @@ public final class AerodynamicStep {
             // Keep Lift Patch's limits unconditionally, including configs written by the previous build.
             liftCap=patch?LiftPatchTuning.liftCap():40;
             normalCap=patch?LiftPatchTuning.normalCap():50;
+            attachedAngle=Config.ATTACHED_FLOW_ANGLE.get();
+            separatedAngle=Math.max(attachedAngle+.1,Config.SEPARATED_FLOW_ANGLE.get());
+            attachedDrag=Config.ATTACHED_FLOW_DRAG_FRACTION.get();
             prepared=true;
         }
         var pos=context.pos();var direction=context.dir();
@@ -53,7 +57,7 @@ public final class AerodynamicStep {
         double density=DimensionPhysicsData.getAirPressure(body.getLevel(),worldPoint);
         SurfaceAerodynamics.calculate(velocity,normal,density,provider.sable$getLiftScalar()*liftTuning,
                 provider.sable$getParallelDragScalar()*normalTuning,provider.sable$getDirectionlessDragScalar()*baseTuning,
-                liftCap,normalCap,force);
+                liftCap,normalCap,attachedAngle,separatedAngle,attachedDrag,force);
         passivity.addSurface(lever,velocity,normal,force.lift,force.normalDamping,force.baseDamping,timeStep);
         force.lift.mul(timeStep);force.drag.mul(timeStep);
         if(group!=null) {

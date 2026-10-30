@@ -50,12 +50,23 @@ public class Config {
         BUILDER.pop();
     }
     public static final ModConfigSpec.BooleanValue CONSERVATIVE_AERODYNAMICS;
+    public static final ModConfigSpec.DoubleValue ATTACHED_FLOW_ANGLE;
+    public static final ModConfigSpec.DoubleValue SEPARATED_FLOW_ANGLE;
+    public static final ModConfigSpec.DoubleValue ATTACHED_FLOW_DRAG_FRACTION;
     static {
         BUILDER.push("aerodynamics");
-        CONSERVATIVE_AERODYNAMICS=BUILDER.comment("Пассивная аэродинамика: подъёмная сила поперёк потока, давление на симметричные паруса — по нормали.",
+        CONSERVATIVE_AERODYNAMICS=BUILDER.comment("Пассивная аэродинамика: подъёмная сила поперёк потока, малые углы уменьшают потери от нормального давления без ослабления рулей.",
                 "Не нормирует скорость аппарата: подъёмная сила интегрируется с сохранением энергии, сопротивление — с её потерей.",
                 "Сохраняет множители liftTuning/parallelDragTuning/directionlessDragTuning и ОБА soft cap Lift Patch.",
                 "false возвращает исходные формулы Sable/Lift Patch.").define("conservative_surfaces",true);
+        ATTACHED_FLOW_ANGLE=BUILDER.comment("Угол потока к ПЛОСКОСТИ паруса в градусах: до него действует минимальное сопротивление нормального давления.")
+                .defineInRange("attached_flow_angle_degrees",12.0,0.0,89.0);
+        SEPARATED_FLOW_ANGLE=BUILDER.comment("Угол полного возврата прежнего сопротивления. Между порогами — плавный переход.",
+                "Если не больше первого порога, используется первый порог + 0.1 градуса.")
+                .defineInRange("separated_flow_angle_degrees",25.0,0.1,90.0);
+        ATTACHED_FLOW_DRAG_FRACTION=BUILDER.comment("Доля прежнего сопротивления нормального давления на малых углах (0..1).",
+                "Не меняет поперечную управляющую силу, общее сопротивление или soft cap. 1 возвращает прежнюю модель.")
+                .defineInRange("attached_flow_drag_fraction",0.1,0.0,1.0);
         BUILDER.pop();
     }
     public static final ModConfigSpec.BooleanValue ATMOSPHERE_ENABLED;
