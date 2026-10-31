@@ -50,8 +50,17 @@ public class Config {
         BUILDER.pop();
     }
     public static final ModConfigSpec.DoubleValue WHEEL_LATERAL_FRICTION_MULTIPLIER;
+    public static final ModConfigSpec.BooleanValue WHEEL_PARKING_BRAKE;
+    public static final ModConfigSpec.DoubleValue WHEEL_PARKING_SPEED;
+    public static final ModConfigSpec.DoubleValue WHEEL_STATIC_FRICTION;
     static {
         BUILDER.push("wheels");
+        WHEEL_PARKING_BRAKE=BUILDER.comment("Удержание почти остановившихся колёс при полном сигнале тормоза (15), с ограничением по сцеплению.")
+                .define("parking_brake",true);
+        WHEEL_PARKING_SPEED=BUILDER.comment("Максимальная продольная скорость точки колеса для удерживающего режима, м/с.")
+                .defineInRange("parking_brake_speed",1.0,0.01,3.0);
+        WHEEL_STATIC_FRICTION=BUILDER.comment("Множитель предела удерживающего импульса: нагрузка подвески * сцепление поверхности * этот коэффициент.")
+                .defineInRange("static_brake_friction",1.0,0.0,4.0);
         WHEEL_LATERAL_FRICTION_MULTIPLIER=BUILDER.comment("Множитель поперечного сцепления колёс Offroad при контакте с поверхностью.",
                 "2 усиливает сопротивление боковому скольжению вдвое; 1 возвращает исходное поведение.",
                 "Не меняет продольный тормоз, тягу, качение или подвеску. Действует на все колёса Offroad.",

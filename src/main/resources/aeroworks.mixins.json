@@ -15,6 +15,7 @@
   },
   "mixins": [
     "wheels.WheelLateralGripMixin",
+    "wheels.WheelParkingBrakeMixin",
     "wind.ServerSubLevelWindMixin",
     "atmosphere.DimensionAtmosphereMixin",
     "atmosphere.PropellerAtmosphereMixin",
