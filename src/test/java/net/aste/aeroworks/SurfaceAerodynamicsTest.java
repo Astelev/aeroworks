@@ -19,7 +19,7 @@ public final class SurfaceAerodynamicsTest {
         return .5*(mass*v.lengthSquared()+w.dot(inertia.transform(w,new Vector3d())));
     }
     public static void main(String[] args) {
-        oldRunaway(); quadratic(); passivity(); symmetricControls(); attachedFlow(); zeroDrag(); finiteSteps(); glideAndClimb(); edgeCases();
+        oldRunaway(); quadratic(); passivity(); symmetricControls(); attachedFlow(); wingStall(); zeroDrag(); finiteSteps(); glideAndClimb(); edgeCases();
         System.out.println("Surface aerodynamics: former runaway, two-sided controls, zero-drag coasting, soft caps, lift orthogonality, normal pressure dissipation, midpoint energy and glide/climb passed");
     }
     private static void oldRunaway() {
@@ -163,6 +163,38 @@ public final class SurfaceAerodynamicsTest {
         solver.integrate(3,inertia,v,spin,j,torque);
         v.fma(1.0/3,j);new Matrix3d(inertia).invert().transform(torque,new Vector3d()).add(spin,spin);
         near(energy(3,inertia,v,spin),initial,1e-7);
+    }
+    private static void wingStall() {
+        var v=new Vector3d(30,0,0);
+        double previous=1;
+        for(int degree=0;degree<90;degree++) {
+            double angle=Math.toRadians(degree);
+            var n=new Vector3d(Math.sin(angle),-Math.cos(angle),0);
+            var old=new SurfaceAerodynamics.Result();var stalled=new SurfaceAerodynamics.Result();
+            SurfaceAerodynamics.calculate(v,n,1,.076,0,0,40,50,30,45,.1,5,1,old);
+            SurfaceAerodynamics.calculate(v,n,1,.076,0,0,40,50,30,45,.1,5,.1,stalled);
+            double ratio=stalled.lift.length()/old.lift.length();
+            if(degree<=30)near(ratio,1,1e-10);
+            if(degree>=35)near(ratio,.1,1e-10);
+            check(ratio<=previous+1e-10,"Cambered lift falls monotonically across the short stall transition");
+            previous=ratio;
+            near(stalled.lift.dot(v),0,1e-9);
+            near(stalled.normalDamping,old.normalDamping,0);
+            for(int sign:new int[]{-1,1}) {
+                n.set(Math.sin(angle*sign),-Math.cos(angle*sign),0);
+                // Compare full forces after subtracting identical symmetric pressure, with both soft caps active.
+                var before=new SurfaceAerodynamics.Result();var after=new SurfaceAerodynamics.Result();var symmetric=new SurfaceAerodynamics.Result();
+                SurfaceAerodynamics.calculate(v,n,1,.076,.6125,.0068,40,50,30,45,.1,5,1,before);
+                SurfaceAerodynamics.calculate(v,n,1,.076,.6125,.0068,40,50,30,45,.1,5,.1,after);
+                SurfaceAerodynamics.calculate(v,n,1,0,.6125,.0068,40,50,30,45,.1,5,.1,symmetric);
+                near(before.drag.distance(after.drag),0,1e-10);
+                near(new Vector3d(after.lift).sub(symmetric.lift).distance(new Vector3d(before.lift).sub(symmetric.lift).mul(ratio)),0,1e-9);
+                var untouched=new SurfaceAerodynamics.Result();
+                SurfaceAerodynamics.calculate(v,n,1,0,.6125,.0068,40,50,30,45,.1,5,1,untouched);
+                near(untouched.lift.distance(symmetric.lift)+untouched.drag.distance(symmetric.drag),0,0);
+            }
+        }
+        System.out.println("Wing stall: intrinsic lift unchanged through 30 degrees, 10% at 35, symmetric controls/pressure unchanged");
     }
     private static void zeroDrag() {
         var integrator=new PassiveImpulse();var inertia=new Matrix3d().scaling(2,5,9);

@@ -23,6 +23,7 @@ public final class AerodynamicStep {
     private boolean visualStep;
     private double liftTuning,normalTuning,baseTuning,liftCap,normalCap;
     private double attachedAngle,separatedAngle,attachedDrag;
+    private double stallTransition,stalledLift,particleMinSpeedSquared;
     public void begin() {
         enabled=Config.CONSERVATIVE_AERODYNAMICS.get();prepared=false;visualCount=0;visualStep=false;impulse.zero();torque.zero();passivity.begin();
     }
@@ -45,6 +46,10 @@ public final class AerodynamicStep {
             attachedAngle=Config.ATTACHED_FLOW_ANGLE.get();
             separatedAngle=Math.max(attachedAngle+.1,Config.SEPARATED_FLOW_ANGLE.get());
             attachedDrag=Config.ATTACHED_FLOW_DRAG_FRACTION.get();
+            stallTransition=Config.STALL_LIFT_TRANSITION.get();
+            stalledLift=Config.STALLED_LIFT_FRACTION.get();
+            double particleMinSpeed=Config.STALL_PARTICLE_MIN_SPEED.get();
+            particleMinSpeedSquared=particleMinSpeed*particleMinSpeed;
             long tick=body.getLevel().getGameTime();
             visualStep=Config.STALL_PARTICLES.get() && (lastVisualTick==Long.MIN_VALUE || tick-lastVisualTick>=5);
             if(visualStep)lastVisualTick=tick;
@@ -63,8 +68,8 @@ public final class AerodynamicStep {
         double density=DimensionPhysicsData.getAirPressure(body.getLevel(),worldPoint);
         SurfaceAerodynamics.calculate(velocity,normal,density,provider.sable$getLiftScalar()*liftTuning,
                 provider.sable$getParallelDragScalar()*normalTuning,provider.sable$getDirectionlessDragScalar()*baseTuning,
-                liftCap,normalCap,attachedAngle,separatedAngle,attachedDrag,force);
-        if(visualStep && visualCount<3 && density>0 && velocity.lengthSquared()>=36
+                liftCap,normalCap,attachedAngle,separatedAngle,attachedDrag,stallTransition,stalledLift,force);
+        if(visualStep && visualCount<3 && density>0 && velocity.lengthSquared()>=particleMinSpeedSquared
                 && provider.sable$getParallelDragScalar()*normalTuning>0
                 && Math.abs(velocity.dot(normal))>velocity.length()*normal.length()*Math.sin(Math.toRadians(attachedAngle))
                 && body.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {

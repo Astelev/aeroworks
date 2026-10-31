@@ -19,6 +19,13 @@ public final class SurfaceAerodynamics {
     public static void calculate(Vector3dc velocity,Vector3dc normal,double density,double liftCoefficient,
             double normalDragCoefficient,double baseDragCoefficient,double liftCap,double normalCap,
             double attachedAngleDegrees,double separatedAngleDegrees,double attachedDragFraction,Result out) {
+        calculate(velocity,normal,density,liftCoefficient,normalDragCoefficient,baseDragCoefficient,liftCap,normalCap,
+                attachedAngleDegrees,separatedAngleDegrees,attachedDragFraction,5,.1,out);
+    }
+    public static void calculate(Vector3dc velocity,Vector3dc normal,double density,double liftCoefficient,
+            double normalDragCoefficient,double baseDragCoefficient,double liftCap,double normalCap,
+            double attachedAngleDegrees,double separatedAngleDegrees,double attachedDragFraction,
+            double stallTransitionDegrees,double stalledLiftFraction,Result out) {
         out.clear();
         double speed=velocity.length(),normalLength=normal.length();
         if(!Double.isFinite(speed)||!Double.isFinite(normalLength)||speed<1e-9||normalLength<1e-9
@@ -31,6 +38,11 @@ public final class SurfaceAerodynamics {
         if(projection>1e-9 && liftCoefficient>0) {
             // Keep the Sable normal convention (-normal is positive lift), projected off the airflow.
             double magnitude=density*liftCoefficient*squaredSpeed(speed*projection,liftCap);
+            // Only intrinsic cambered lift stalls. Symmetric controls and redirected normal pressure retain authority.
+            double separated=pressureDragFraction(Math.abs(incidence),attachedAngleDegrees,
+                    attachedAngleDegrees+Math.max(.1,stallTransitionDegrees),0);
+            double retained=Double.isFinite(stalledLiftFraction)?Math.max(0,Math.min(1,stalledLiftFraction)):1;
+            magnitude*=1-(1-retained)*separated;
             out.lift.set(px,py,pz).mul(-magnitude/projection);
         }
         // Keep all transverse pressure, including control authority of zero-lift symmetric sails.
