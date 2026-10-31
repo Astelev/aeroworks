@@ -14,7 +14,7 @@ public final class SurfaceAerodynamics {
     public static void calculate(Vector3dc velocity,Vector3dc normal,double density,double liftCoefficient,
             double normalDragCoefficient,double baseDragCoefficient,double liftCap,double normalCap,Result out) {
         calculate(velocity,normal,density,liftCoefficient,normalDragCoefficient,baseDragCoefficient,
-                liftCap,normalCap,12,25,.1,out);
+                liftCap,normalCap,30,45,.1,out);
     }
     public static void calculate(Vector3dc velocity,Vector3dc normal,double density,double liftCoefficient,
             double normalDragCoefficient,double baseDragCoefficient,double liftCap,double normalCap,

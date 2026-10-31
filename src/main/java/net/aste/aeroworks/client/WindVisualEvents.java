@@ -29,6 +29,7 @@ public final class WindVisualEvents {
     private WindVisualEvents() {}
     public static void registerParticles(RegisterParticleProvidersEvent event) {
         event.registerSpriteSet(WindParticles.UPDRAFT.get(),UpdraftCloudParticle.Provider::new);
+        event.registerSpriteSet(WindParticles.STALL.get(),StallWispParticle.Provider::new);
     }
     public static void receive(WindVisualPayload payload) {
         var world=Minecraft.getInstance().level;

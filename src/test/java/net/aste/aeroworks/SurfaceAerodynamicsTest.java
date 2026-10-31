@@ -128,7 +128,7 @@ public final class SurfaceAerodynamicsTest {
             double a=Math.toRadians(degree*side);
             var n=new Vector3d(Math.sin(a),Math.cos(a),0);
             var old=new SurfaceAerodynamics.Result();var current=new SurfaceAerodynamics.Result();
-            SurfaceAerodynamics.calculate(v,n,1,0,.6125,0,40,50,12,25,1,old);
+            SurfaceAerodynamics.calculate(v,n,1,0,.6125,0,40,50,30,45,1,old);
             SurfaceAerodynamics.calculate(v,n,1,0,.6125,0,40,50,current);
             var total=new Vector3d(current.lift).add(current.drag);
             near(total.y,old.drag.y,1e-10);
@@ -136,8 +136,8 @@ public final class SurfaceAerodynamicsTest {
             check(total.dot(v)<=1e-9,"Attached-flow redirection cannot power an aircraft");
             if(degree>0) {
                 double fraction=total.x/old.drag.x;
-                if(degree<=12)near(fraction,.1,1e-10);
-                if(degree>=25)near(total.distance(old.drag),0,1e-10);
+                if(degree<=30)near(fraction,.1,1e-10);
+                if(degree>=45)near(total.distance(old.drag),0,1e-10);
                 if(side==1) {
                     check(fraction>=previousFraction-1e-12,"Drag recovers monotonically toward separation");
                     previousFraction=fraction;
@@ -145,7 +145,7 @@ public final class SurfaceAerodynamicsTest {
             }
         }
         // C1 transition: no sudden drag/authority jump at either threshold.
-        for(double threshold:new double[]{12,25}) {
+        for(double threshold:new double[]{30,45}) {
             var before=new SurfaceAerodynamics.Result();var after=new SurfaceAerodynamics.Result();
             double a=Math.toRadians(threshold-1e-6),b=Math.toRadians(threshold+1e-6);
             SurfaceAerodynamics.calculate(v,new Vector3d(Math.sin(a),Math.cos(a),0),1,.076,.6125,.0068,40,50,before);
@@ -157,7 +157,7 @@ public final class SurfaceAerodynamicsTest {
         var spin=new Vector3d(.3,-.2,.1);var lever=new Vector3d(-3,1,2);
         var point=spin.cross(lever,new Vector3d()).add(v);var n=new Vector3d(.1,1,0);
         var f=new SurfaceAerodynamics.Result();
-        SurfaceAerodynamics.calculate(point,n,1,0,.6125,0,40,50,12,25,0,f);
+        SurfaceAerodynamics.calculate(point,n,1,0,.6125,0,40,50,30,45,0,f);
         var j=new Vector3d();var torque=new Vector3d();double initial=energy(3,inertia,v,spin);
         solver.begin();solver.addSurface(lever,point,n,f.lift,f.normalDamping,f.baseDamping,2);
         solver.integrate(3,inertia,v,spin,j,torque);
