@@ -10,8 +10,9 @@ public final class ParkingBrakes {
     public interface Access {State aste_aeroworks$parkingBrake();}
     public static final class State {
         public final ParkingBrakeSolver.Contact contact=new ParkingBrakeSolver.Contact();
+        public final ParkingBrakeSolver.Contact lateral=new ParkingBrakeSolver.Contact();
         public ServerSubLevel body;
-        public boolean prepared;
+        public boolean prepared,longitudinalActive,lateralActive;
     }
     private ParkingBrakes() {}
     public static void prepare(Collection<?> wheels) {
@@ -20,7 +21,9 @@ public final class ParkingBrakes {
             var state=access.aste_aeroworks$parkingBrake();
             if(state.body==null||state.prepared)continue;
             state.prepared=true;
-            bodies.computeIfAbsent(state.body,b->new ArrayList<>()).add(state.contact);
+            var contacts=bodies.computeIfAbsent(state.body,b->new ArrayList<>());
+            if(state.longitudinalActive)contacts.add(state.contact);
+            if(state.lateralActive)contacts.add(state.lateral);
         }
         for(var entry:bodies.entrySet()) {
             var mass=entry.getKey().getMassTracker();

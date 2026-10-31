@@ -44,6 +44,30 @@ public final class ParkingBrakeTest {
         ParkingBrakeSolver.solve(100,inertia,cs);check(cs.get(0).impulse==0,"Rolling brake must not damp vertical/lateral motion");
         cs.get(0).speed=.2;cs.get(0).limit=0;ParkingBrakeSolver.solve(100,inertia,cs);
         check(cs.get(0).impulse==0,"No support/grip means no holding force");
+        lateralGrip();
         System.out.println("Parking brakes: coupled creep/yaw stop, 2..8 wheels, friction bounds, no added energy and longitudinal-only impulses passed");
+    }
+    private static void lateralGrip() {
+        var inertia=new Matrix3d().scaling(200,300,500);var inverse=new Matrix3d(inertia).invert();
+        var v=new Vector3d(8,0,.1);var w=new Vector3d(0,.02,0);
+        var cs=new ArrayList<ParkingBrakeSolver.Contact>();
+        for(int side:new int[]{-1,1})cs.add(contact(new Vector3d(side*3,0,0),new Vector3d(0,0,1),v,w,100));
+        ParkingBrakeSolver.solve(100,inertia,cs);
+        for(var c:cs) {v.fma(c.impulse/100,c.axis);w.add(inverse.transform(new Vector3d(c.angularAxis).mul(c.impulse)));}
+        check(Math.abs(v.x-8)<1e-12,"Lateral grip must allow free forward rolling without brakes");
+        check(Math.abs(v.z)+w.length()<1e-8,"Lateral creep and yaw must stop together in grip");
+        // Weakly loaded/slippery wheels cannot pin the aircraft to the ground.
+        v.set(0,0,.4);w.zero();cs.clear();
+        cs.add(contact(new Vector3d(),new Vector3d(0,0,1),v,w,.01));
+        ParkingBrakeSolver.solve(100,inertia,cs);v.fma(cs.get(0).impulse/100,cs.get(0).axis);
+        check(v.z>.39 && Math.abs(cs.get(0).impulse)<=.01,"Exceeding available friction must retain slip");
+        // Longitudinal parking and lateral grip share one body solve, not two competing velocity resets.
+        v.set(.1,0,.1);w.set(0,.02,0);cs.clear();
+        for(int side:new int[]{-1,1})for(var axis:new Vector3d[]{new Vector3d(1,0,0),new Vector3d(0,0,1)})
+            cs.add(contact(new Vector3d(side*3,0,side*3),axis,v,w,100));
+        ParkingBrakeSolver.solve(100,inertia,cs);
+        for(var c:cs) {v.fma(c.impulse/100,c.axis);w.add(inverse.transform(new Vector3d(c.angularAxis).mul(c.impulse)));}
+        check(v.length()+w.length()<1e-5,"Combined parked grip must stop longitudinal/lateral/yaw motion");
+        System.out.println("Lateral static grip: free forward rolling, stopped lateral creep/yaw, friction breakaway and combined parking passed");
     }
 }

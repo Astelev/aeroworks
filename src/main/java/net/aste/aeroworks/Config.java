@@ -53,8 +53,17 @@ public class Config {
     public static final ModConfigSpec.BooleanValue WHEEL_PARKING_BRAKE;
     public static final ModConfigSpec.DoubleValue WHEEL_PARKING_SPEED;
     public static final ModConfigSpec.DoubleValue WHEEL_STATIC_FRICTION;
+    public static final ModConfigSpec.BooleanValue WHEEL_STATIC_LATERAL;
+    public static final ModConfigSpec.DoubleValue WHEEL_STATIC_LATERAL_SPEED;
+    public static final ModConfigSpec.DoubleValue WHEEL_STATIC_LATERAL_FRICTION;
     static {
         BUILDER.push("wheels");
+        WHEEL_STATIC_LATERAL=BUILDER.comment("Удержание от остаточного бокового скольжения в контакте колеса с поверхностью, независимо от сигнала тормоза.")
+                .define("static_lateral_grip",true);
+        WHEEL_STATIC_LATERAL_SPEED=BUILDER.comment("Максимальная боковая скорость точки колеса для режима зацепа, м/с. Выше — обычное боковое скольжение/дрифт.")
+                .defineInRange("static_lateral_speed",0.5,0.01,3.0);
+        WHEEL_STATIC_LATERAL_FRICTION=BUILDER.comment("Предел бокового удерживающего импульса: нагрузка подвески * сцепление * коэффициент. При превышении допускается скольжение.")
+                .defineInRange("static_lateral_friction",1.0,0.0,4.0);
         WHEEL_PARKING_BRAKE=BUILDER.comment("Удержание почти остановившихся колёс при полном сигнале тормоза (15), с ограничением по сцеплению.")
                 .define("parking_brake",true);
         WHEEL_PARKING_SPEED=BUILDER.comment("Максимальная продольная скорость точки колеса для удерживающего режима, м/с.")

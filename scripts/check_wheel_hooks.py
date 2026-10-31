@@ -64,12 +64,12 @@ if len(sys.argv) > 2:
 parking = root/'src/main/java/net/aste/aeroworks/mixin/wheels/WheelParkingBrakeMixin.java'
 if parking.exists():
     source = parking.read_text()
-    for name in ('localVelocity', 'normalD', 'brakeStrength', 'springForce'):
+    for name in ('localVelocity', 'normalD', 'sideD', 'brakeStrength', 'springForce'):
         assert re.search(r'\b'+name+r'\s+(?:D|Lorg/joml/Vector3d[bc]?;)', body), 'Missing brake capture local: '+name
         assert '@Local(name="'+name+'")' in source
-    assert 'ordinal=0' in source and 'index=0' in source
+    assert 'ordinal=0' in source and 'ordinal=1' in source and 'index=0' in source
     assert 'applyAllBatchedForces(net.minecraft.server.level.ServerLevel, double)' in code
     assert 'private void applyBatchedForces()' in code
     assert 'java.util.Collection' in code and 'queuedWheelMounts' in code
     assert 'sable$physicsTick'+descriptor in source
-    print('Parking hook verified: first longitudinal fma, four live locals and existing batch entry/application methods')
+    print('Parking hook verified: longitudinal and lateral fma, five live locals and existing batch entry/application methods')

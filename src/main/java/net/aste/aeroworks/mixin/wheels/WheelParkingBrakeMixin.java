@@ -33,6 +33,7 @@ public abstract class WheelParkingBrakeMixin implements ParkingBrakes.Access {
             at=@At("HEAD"),remap=false,require=0,expect=0,allow=1)
     private void aste_aeroworks$resetBrake(CallbackInfo ci) {
         aste_aeroworks$brake.body=null;aste_aeroworks$brake.prepared=false;
+        aste_aeroworks$brake.longitudinalActive=false;aste_aeroworks$brake.lateralActive=false;
     }
     @ModifyArg(method="sable$physicsTick(Ldev/ryanhcode/sable/sublevel/ServerSubLevel;Ldev/ryanhcode/sable/api/physics/handle/RigidBodyHandle;D)V",
             at=@At(value="INVOKE",target="Lorg/joml/Vector3d;fma(DLorg/joml/Vector3dc;)Lorg/joml/Vector3d;",ordinal=0,remap=false),
@@ -46,8 +47,23 @@ public abstract class WheelParkingBrakeMixin implements ParkingBrakes.Access {
         var state=aste_aeroworks$brake;var c=state.contact;
         c.axis.set(axis).normalize();c.lever.set(queuedForcePos).sub(body.getMassTracker().getCenterOfMass());
         c.speed=speed;c.limit=support*Math.max(0,touchingFriction)*Config.WHEEL_STATIC_FRICTION.get();
-        c.fallback=original;c.impulse=original;state.body=body;
+        c.fallback=original;c.impulse=original;state.body=body;state.longitudinalActive=true;
         // The shared batch replaces this longitudinal impulse, retaining the untouched lateral/suspension forces.
+        return 0;
+    }
+    @ModifyArg(method="sable$physicsTick(Ldev/ryanhcode/sable/sublevel/ServerSubLevel;Ldev/ryanhcode/sable/api/physics/handle/RigidBodyHandle;D)V",
+            at=@At(value="INVOKE",target="Lorg/joml/Vector3d;fma(DLorg/joml/Vector3dc;)Lorg/joml/Vector3d;",ordinal=1,remap=false),
+            index=0,remap=false,require=0,expect=0,allow=1)
+    private double aste_aeroworks$holdLateral(double original,@Local(argsOnly=true) ServerSubLevel body,
+            @Local(name="localVelocity") Vector3d velocity,@Local(name="sideD") Vector3dc axis,
+            @Local(name="springForce") double support) {
+        if(!Config.WHEEL_STATIC_LATERAL.get()||support<=0||!Double.isFinite(support))return original;
+        double speed=velocity.dot(axis);
+        if(!Double.isFinite(speed)||Math.abs(speed)>Config.WHEEL_STATIC_LATERAL_SPEED.get())return original;
+        var state=aste_aeroworks$brake;var c=state.lateral;
+        c.axis.set(axis).normalize();c.lever.set(queuedForcePos).sub(body.getMassTracker().getCenterOfMass());
+        c.speed=speed;c.limit=support*Math.max(0,touchingFriction)*Config.WHEEL_STATIC_LATERAL_FRICTION.get();
+        c.fallback=original;c.impulse=original;state.body=body;state.lateralActive=true;
         return 0;
     }
     @Inject(method="applyAllBatchedForces(Lnet/minecraft/server/level/ServerLevel;D)V",at=@At("HEAD"),
@@ -57,8 +73,11 @@ public abstract class WheelParkingBrakeMixin implements ParkingBrakes.Access {
     private void aste_aeroworks$applyBrake(CallbackInfo ci) {
         var state=aste_aeroworks$brake;
         if(state.body!=null) {
-            double impulse=state.prepared?state.contact.impulse:state.contact.fallback;
-            aste_aeroworks$brakeImpulse.set(state.contact.axis).mul(impulse);
+            aste_aeroworks$brakeImpulse.zero();
+            if(state.longitudinalActive)aste_aeroworks$brakeImpulse.fma(
+                    state.prepared?state.contact.impulse:state.contact.fallback,state.contact.axis);
+            if(state.lateralActive)aste_aeroworks$brakeImpulse.fma(
+                    state.prepared?state.lateral.impulse:state.lateral.fallback,state.lateral.axis);
             forceTotal.applyImpulseAtPoint(state.body,queuedForcePos,aste_aeroworks$brakeImpulse);
             state.body=null;
         }
