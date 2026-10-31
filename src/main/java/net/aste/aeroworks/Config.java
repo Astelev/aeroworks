@@ -49,6 +49,16 @@ public class Config {
                 .defineInRange("sail_pressure_coefficient", 1.0, 0.0, 10.0);
         BUILDER.pop();
     }
+    public static final ModConfigSpec.DoubleValue WHEEL_LATERAL_FRICTION_MULTIPLIER;
+    static {
+        BUILDER.push("wheels");
+        WHEEL_LATERAL_FRICTION_MULTIPLIER=BUILDER.comment("Множитель поперечного сцепления колёс Offroad при контакте с поверхностью.",
+                "2 усиливает сопротивление боковому скольжению вдвое; 1 возвращает исходное поведение.",
+                "Не меняет продольный тормоз, тягу, качение или подвеску. Действует на все колёса Offroad.",
+                "Большие значения могут вызывать рывки: начинайте с 2.")
+                .defineInRange("lateral_friction_multiplier",2.0,0.0,4.0);
+        BUILDER.pop();
+    }
     public static final ModConfigSpec.BooleanValue CONSERVATIVE_AERODYNAMICS;
     public static final ModConfigSpec.BooleanValue STALL_PARTICLES;
     public static final ModConfigSpec.DoubleValue STALL_PARTICLE_MIN_SPEED;
