@@ -19,7 +19,7 @@ public final class SurfaceAerodynamicsTest {
         return .5*(mass*v.lengthSquared()+w.dot(inertia.transform(w,new Vector3d())));
     }
     public static void main(String[] args) {
-        oldRunaway(); quadratic(); passivity(); symmetricControls(); zeroDrag(); finiteSteps(); glideAndClimb(); edgeCases();
+        oldRunaway(); quadratic(); passivity(); symmetricControls(); attachedFlow(); wingStall(); zeroDrag(); finiteSteps(); glideAndClimb(); edgeCases();
         System.out.println("Surface aerodynamics: former runaway, two-sided controls, zero-drag coasting, soft caps, lift orthogonality, normal pressure dissipation, midpoint energy and glide/climb passed");
     }
     private static void oldRunaway() {
@@ -84,10 +84,11 @@ public final class SurfaceAerodynamicsTest {
             double angle=sign*Math.toRadians(15);var n=new Vector3d(Math.sin(angle),0,Math.cos(angle));
             var f=new SurfaceAerodynamics.Result();
             SurfaceAerodynamics.calculate(v,n,1,0,1.75*.35,0,40,50,f);
-            check(f.lift.lengthSquared()==0 && Math.abs(f.drag.z)>1,"A zero-lift symmetric sail must retain transverse pressure");
+            check(Math.abs(new Vector3d(f.lift).add(f.drag).z)>1,"A zero-lift symmetric sail must retain transverse pressure");
             var flipped=new SurfaceAerodynamics.Result();
             SurfaceAerodynamics.calculate(v,new Vector3d(n).negate(),1,0,1.75*.35,0,40,50,flipped);
             near(flipped.drag.distance(f.drag),0,1e-12);
+            near(flipped.lift.distance(f.lift),0,1e-12);
             submit(integrator,r,v,new Vector3d(),n,0,1.75*.35,0,40,50,.02,10,inertia,j,torque);
             check(Math.abs(torque.y)>1e-4,"Deflected tail must create yaw torque even with zero general drag");
             if(previous!=0)check(previous*torque.y<0,"Opposite deflection must reverse yaw");
@@ -119,6 +120,81 @@ public final class SurfaceAerodynamicsTest {
         var limited=new SurfaceAerodynamics.Result();
         SurfaceAerodynamics.calculate(new Vector3d(200,0,0),new Vector3d(0,-1,0),1,.076,0,0,40,50,limited);
         check(limited.lift.length()<.076*40*40 && limited.lift.length()<horizontal.lift.length()/10,"Restore lift soft cap at flight speed");
+    }
+    private static void attachedFlow() {
+        var v=new Vector3d(30,0,0);
+        double previousFraction=0;
+        for(int degree=0;degree<=90;degree++)for(int side:new int[]{-1,1}) {
+            double a=Math.toRadians(degree*side);
+            var n=new Vector3d(Math.sin(a),Math.cos(a),0);
+            var old=new SurfaceAerodynamics.Result();var current=new SurfaceAerodynamics.Result();
+            SurfaceAerodynamics.calculate(v,n,1,0,.6125,0,40,50,30,45,1,old);
+            SurfaceAerodynamics.calculate(v,n,1,0,.6125,0,40,50,current);
+            var total=new Vector3d(current.lift).add(current.drag);
+            near(total.y,old.drag.y,1e-10);
+            near(current.lift.dot(v),0,1e-9);
+            check(total.dot(v)<=1e-9,"Attached-flow redirection cannot power an aircraft");
+            if(degree>0) {
+                double fraction=total.x/old.drag.x;
+                if(degree<=30)near(fraction,.1,1e-10);
+                if(degree>=45)near(total.distance(old.drag),0,1e-10);
+                if(side==1) {
+                    check(fraction>=previousFraction-1e-12,"Drag recovers monotonically toward separation");
+                    previousFraction=fraction;
+                }
+            }
+        }
+        // C1 transition: no sudden drag/authority jump at either threshold.
+        for(double threshold:new double[]{30,45}) {
+            var before=new SurfaceAerodynamics.Result();var after=new SurfaceAerodynamics.Result();
+            double a=Math.toRadians(threshold-1e-6),b=Math.toRadians(threshold+1e-6);
+            SurfaceAerodynamics.calculate(v,new Vector3d(Math.sin(a),Math.cos(a),0),1,.076,.6125,.0068,40,50,before);
+            SurfaceAerodynamics.calculate(v,new Vector3d(Math.sin(b),Math.cos(b),0),1,.076,.6125,.0068,40,50,after);
+            check(before.drag.distance(after.drag)<1e-4 && before.lift.distance(after.lift)<1e-4,"Smooth thresholds");
+        }
+        // Redirection alone uses the same conservative body solver, even at large finite steps.
+        var solver=new PassiveImpulse();var inertia=new Matrix3d().scaling(2,5,9);
+        var spin=new Vector3d(.3,-.2,.1);var lever=new Vector3d(-3,1,2);
+        var point=spin.cross(lever,new Vector3d()).add(v);var n=new Vector3d(.1,1,0);
+        var f=new SurfaceAerodynamics.Result();
+        SurfaceAerodynamics.calculate(point,n,1,0,.6125,0,40,50,30,45,0,f);
+        var j=new Vector3d();var torque=new Vector3d();double initial=energy(3,inertia,v,spin);
+        solver.begin();solver.addSurface(lever,point,n,f.lift,f.normalDamping,f.baseDamping,2);
+        solver.integrate(3,inertia,v,spin,j,torque);
+        v.fma(1.0/3,j);new Matrix3d(inertia).invert().transform(torque,new Vector3d()).add(spin,spin);
+        near(energy(3,inertia,v,spin),initial,1e-7);
+    }
+    private static void wingStall() {
+        var v=new Vector3d(30,0,0);
+        double previous=1;
+        for(int degree=0;degree<90;degree++) {
+            double angle=Math.toRadians(degree);
+            var n=new Vector3d(Math.sin(angle),-Math.cos(angle),0);
+            var old=new SurfaceAerodynamics.Result();var stalled=new SurfaceAerodynamics.Result();
+            SurfaceAerodynamics.calculate(v,n,1,.076,0,0,40,50,30,45,.1,5,1,old);
+            SurfaceAerodynamics.calculate(v,n,1,.076,0,0,40,50,30,45,.1,5,.1,stalled);
+            double ratio=stalled.lift.length()/old.lift.length();
+            if(degree<=30)near(ratio,1,1e-10);
+            if(degree>=35)near(ratio,.1,1e-10);
+            check(ratio<=previous+1e-10,"Cambered lift falls monotonically across the short stall transition");
+            previous=ratio;
+            near(stalled.lift.dot(v),0,1e-9);
+            near(stalled.normalDamping,old.normalDamping,0);
+            for(int sign:new int[]{-1,1}) {
+                n.set(Math.sin(angle*sign),-Math.cos(angle*sign),0);
+                // Compare full forces after subtracting identical symmetric pressure, with both soft caps active.
+                var before=new SurfaceAerodynamics.Result();var after=new SurfaceAerodynamics.Result();var symmetric=new SurfaceAerodynamics.Result();
+                SurfaceAerodynamics.calculate(v,n,1,.076,.6125,.0068,40,50,30,45,.1,5,1,before);
+                SurfaceAerodynamics.calculate(v,n,1,.076,.6125,.0068,40,50,30,45,.1,5,.1,after);
+                SurfaceAerodynamics.calculate(v,n,1,0,.6125,.0068,40,50,30,45,.1,5,.1,symmetric);
+                near(before.drag.distance(after.drag),0,1e-10);
+                near(new Vector3d(after.lift).sub(symmetric.lift).distance(new Vector3d(before.lift).sub(symmetric.lift).mul(ratio)),0,1e-9);
+                var untouched=new SurfaceAerodynamics.Result();
+                SurfaceAerodynamics.calculate(v,n,1,0,.6125,.0068,40,50,30,45,.1,5,1,untouched);
+                near(untouched.lift.distance(symmetric.lift)+untouched.drag.distance(symmetric.drag),0,0);
+            }
+        }
+        System.out.println("Wing stall: intrinsic lift unchanged through 30 degrees, 10% at 35, symmetric controls/pressure unchanged");
     }
     private static void zeroDrag() {
         var integrator=new PassiveImpulse();var inertia=new Matrix3d().scaling(2,5,9);

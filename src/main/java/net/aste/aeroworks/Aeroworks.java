@@ -46,6 +46,7 @@ public class Aeroworks {
         modEventBus.addListener(net.aste.aeroworks.atmosphere.AtmosphereSettings::reloading);
         modEventBus.addListener(net.aste.aeroworks.wind.WindSettings::loading);
         modEventBus.addListener(net.aste.aeroworks.wind.WindSettings::reloading);
+        modEventBus.addListener(net.aste.aeroworks.aerodynamics.AerodynamicSettings::loading);
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 

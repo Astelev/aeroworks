@@ -49,13 +49,55 @@ public class Config {
                 .defineInRange("sail_pressure_coefficient", 1.0, 0.0, 10.0);
         BUILDER.pop();
     }
+    public static final ModConfigSpec.DoubleValue WHEEL_LATERAL_FRICTION_MULTIPLIER;
+    public static final ModConfigSpec.BooleanValue WHEEL_PARKING_BRAKE;
+    public static final ModConfigSpec.DoubleValue WHEEL_PARKING_SPEED;
+    public static final ModConfigSpec.DoubleValue WHEEL_STATIC_FRICTION;
+    static {
+        BUILDER.push("wheels");
+        WHEEL_PARKING_BRAKE=BUILDER.comment("Удержание почти остановившихся колёс при полном сигнале тормоза (15), с ограничением по сцеплению.")
+                .define("parking_brake",true);
+        WHEEL_PARKING_SPEED=BUILDER.comment("Максимальная продольная скорость точки колеса для удерживающего режима, м/с.")
+                .defineInRange("parking_brake_speed",1.0,0.01,3.0);
+        WHEEL_STATIC_FRICTION=BUILDER.comment("Множитель предела удерживающего импульса: нагрузка подвески * сцепление поверхности * этот коэффициент.")
+                .defineInRange("static_brake_friction",1.0,0.0,4.0);
+        WHEEL_LATERAL_FRICTION_MULTIPLIER=BUILDER.comment("Множитель поперечного сцепления колёс Offroad при контакте с поверхностью.",
+                "2 усиливает сопротивление боковому скольжению вдвое; 1 возвращает исходное поведение.",
+                "Не меняет продольный тормоз, тягу, качение или подвеску. Действует на все колёса Offroad.",
+                "Большие значения могут вызывать рывки: начинайте с 2.")
+                .defineInRange("lateral_friction_multiplier",2.0,0.0,4.0);
+        BUILDER.pop();
+    }
     public static final ModConfigSpec.BooleanValue CONSERVATIVE_AERODYNAMICS;
+    public static final ModConfigSpec.BooleanValue STALL_PARTICLES;
+    public static final ModConfigSpec.DoubleValue STALL_PARTICLE_MIN_SPEED;
+    public static final ModConfigSpec.DoubleValue STALL_LIFT_TRANSITION;
+    public static final ModConfigSpec.DoubleValue STALLED_LIFT_FRACTION;
+    public static final ModConfigSpec.DoubleValue ATTACHED_FLOW_ANGLE;
+    public static final ModConfigSpec.DoubleValue SEPARATED_FLOW_ANGLE;
+    public static final ModConfigSpec.DoubleValue ATTACHED_FLOW_DRAG_FRACTION;
     static {
         BUILDER.push("aerodynamics");
-        CONSERVATIVE_AERODYNAMICS=BUILDER.comment("Пассивная аэродинамика: подъёмная сила поперёк потока, давление на симметричные паруса — по нормали.",
+        CONSERVATIVE_AERODYNAMICS=BUILDER.comment("Пассивная аэродинамика: подъёмная сила поперёк потока, малые углы уменьшают потери от нормального давления без ослабления рулей.",
                 "Не нормирует скорость аппарата: подъёмная сила интегрируется с сохранением энергии, сопротивление — с её потерей.",
                 "Сохраняет множители liftTuning/parallelDragTuning/directionlessDragTuning и ОБА soft cap Lift Patch.",
                 "false возвращает исходные формулы Sable/Lift Patch.").define("conservative_surfaces",true);
+        STALL_PARTICLES=BUILDER.comment("Белые завихрения у парусов выше первого углового порога; только визуальный эффект.").define("stall_particles",true);
+        STALL_PARTICLE_MIN_SPEED=BUILDER.comment("Минимальная местная скорость потока для частиц срыва, м/с; не меняет силы.")
+                .defineInRange("stall_particle_min_speed",10.0,0.0,256.0);
+        STALL_LIFT_TRANSITION=BUILDER.comment("Ширина резкого плавного падения собственной подъёмной силы одностороннего крыла после первого углового порога, градусы.")
+                .defineInRange("stall_lift_transition_degrees",5.0,0.1,90.0);
+        STALLED_LIFT_FRACTION=BUILDER.comment("Остаточная доля собственной подъёмной силы после срыва (0..1).",
+                "Не ослабляет нормальное давление и двухсторонние рули. 1 отключает падение lift.")
+                .defineInRange("stalled_lift_fraction",0.1,0.0,1.0);
+        ATTACHED_FLOW_ANGLE=BUILDER.comment("Угол потока к ПЛОСКОСТИ паруса в градусах: до него действует минимальное сопротивление нормального давления.")
+                .defineInRange("attached_flow_angle_degrees",30.0,0.0,89.0);
+        SEPARATED_FLOW_ANGLE=BUILDER.comment("Угол полного возврата прежнего сопротивления. Между порогами — плавный переход.",
+                "Если не больше первого порога, используется первый порог + 0.1 градуса.")
+                .defineInRange("separated_flow_angle_degrees",45.0,0.1,90.0);
+        ATTACHED_FLOW_DRAG_FRACTION=BUILDER.comment("Доля прежнего сопротивления нормального давления на малых углах (0..1).",
+                "Не меняет поперечную управляющую силу, общее сопротивление или soft cap. 1 возвращает прежнее сопротивление нормального давления; отдельное падение lift настраивается ниже.")
+                .defineInRange("attached_flow_drag_fraction",0.1,0.0,1.0);
         BUILDER.pop();
     }
     public static final ModConfigSpec.BooleanValue ATMOSPHERE_ENABLED;
