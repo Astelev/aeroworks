@@ -26,12 +26,17 @@ public final class ParkingBrakeSolver {
         }
         var linear=new Vector3d();var angular=new Vector3d();
         for(var c:contacts)c.impulse=0;
-        for(int iteration=0;iteration<16;iteration++)for(var c:contacts) {
-            double speed=c.speed+c.axis.dot(linear)+c.angularAxis.dot(angular);
-            double inverseMass=1/mass+c.angularAxis.dot(c.angularResponse);
-            double next=Math.max(-c.limit,Math.min(c.limit,c.impulse-speed/inverseMass));
-            double delta=next-c.impulse;c.impulse=next;
-            linear.fma(delta/mass,c.axis);angular.fma(delta,c.angularResponse);
+        for(int iteration=0;iteration<64;iteration++) {
+            double maximumChange=0;
+            for(var c:contacts) {
+                double speed=c.speed+c.axis.dot(linear)+c.angularAxis.dot(angular);
+                double inverseMass=1/mass+c.angularAxis.dot(c.angularResponse);
+                double next=Math.max(-c.limit,Math.min(c.limit,c.impulse-speed/inverseMass));
+                double delta=next-c.impulse;c.impulse=next;
+                maximumChange=Math.max(maximumChange,Math.abs(delta)*inverseMass);
+                linear.fma(delta/mass,c.axis);angular.fma(delta,c.angularResponse);
+            }
+            if(maximumChange<1e-9)break;
         }
         return linear.isFinite()&&angular.isFinite();
     }
