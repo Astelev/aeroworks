@@ -313,3 +313,11 @@ def testSurfaceAerodynamics = tasks.register('testSurfaceAerodynamics', JavaExec
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
 }
 tasks.named('check') { dependsOn testSurfaceAerodynamics }
+
+def testParkingBrakes = tasks.register('testParkingBrakes', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.ParkingBrakeTest'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testParkingBrakes }
