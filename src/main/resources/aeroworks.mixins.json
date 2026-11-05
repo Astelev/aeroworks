@@ -21,6 +21,8 @@
     "atmosphere.PropellerAtmosphereMixin",
     "failure.KineticFailureMixin",
     "failure.PropellerFailureMixin",
-    "failure.SyncedFailureInvoker"
+    "failure.SyncedFailureInvoker",
+    "deepseas.DeepSeasWindManagerMixin",
+    "deepseas.DeepSeasSailWindMixin"
   ]
 }

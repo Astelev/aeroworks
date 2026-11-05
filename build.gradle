@@ -27,6 +27,8 @@ sourceSets.main.resources {
 }
 
 repositories {
+    mavenCentral()
+    maven { url='https://www.cursemaven.com'; content { includeGroup 'curse.maven' } }
     maven { url = 'https://maven.nonamecrackers2.dev/releases' }
     // Add here additional repositories if required by some of the dependencies below.
 }
@@ -129,7 +131,10 @@ def unpackSableLibraries = tasks.register('unpackSableLibraries', Copy) {
 }
 def sableCompileLibraries = files(fileTree(sableCompileDir) { include '*.jar' }).builtBy(unpackSableLibraries)
 
+configurations { deepSeas; compileOnly.extendsFrom deepSeas }
 dependencies {
+    testImplementation "org.ow2.asm:asm-tree:9.8"
+    deepSeas 'curse.maven:create-deep-seas-1533137:9436715'
     compileOnly files(sableJar)
     compileOnly files('libs/create-aeronautics-lift-patch-1.1.0.jar')
     compileOnly sableCompileLibraries
@@ -321,3 +326,15 @@ def testParkingBrakes = tasks.register('testParkingBrakes', JavaExec) {
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
 }
 tasks.named('check') { dependsOn testParkingBrakes }
+
+// Optional Deep Seas contracts: use the exact same JAR as the attached 3.4.7 build.
+['DeepSeasWind','DeepSeasTargets'].each { name ->
+    def task=tasks.register("test${name}",JavaExec){
+        dependsOn tasks.named('testClasses')
+        classpath=sourceSets.test.runtimeClasspath
+        mainClass="net.aste.aeroworks.${name}Test"
+        if(name=='DeepSeasTargets')args configurations.deepSeas.singleFile.absolutePath
+        javaLauncher=javaToolchains.launcherFor {languageVersion=JavaLanguageVersion.of(21)}
+    }
+    tasks.named('check'){dependsOn task}
+}

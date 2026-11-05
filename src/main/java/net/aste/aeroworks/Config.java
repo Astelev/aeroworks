@@ -307,6 +307,14 @@ public class Config {
         FAILURE_MAX_MULTIPLIER=BUILDER.comment("Верхняя граница произведения всех множителей риска.").defineInRange("maximum_risk_multiplier",256.0,1.0,1000000.0);
         BUILDER.pop();
     }
+    public static final ModConfigSpec.DoubleValue DEEP_SEAS_WIND_REFERENCE;
+    static {
+        BUILDER.push("deep_seas");
+        DEEP_SEAS_WIND_REFERENCE=BUILDER.comment("М/с AeroWorks на единицу условного ветра High Seas. Направление сохраняется; меньшее значение усиливает родную тягу парусов Deep Seas.",
+                "Это перевод масштаба для формул Deep Seas, а не отдельный генератор ветра. 9 м/с по умолчанию соответствуют 1 единице.")
+                .defineInRange("wind_reference_speed",9.0,.1,1000.0);
+        BUILDER.pop();
+    }
     static final ModConfigSpec SPEC = BUILDER.build();
 
     private static boolean validateItemName(final Object obj) {

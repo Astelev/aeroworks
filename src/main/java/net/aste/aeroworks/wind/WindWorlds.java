@@ -46,6 +46,15 @@ public final class WindWorlds {
     }
     private WindWorlds() {}
 
+    /** Immutable model clock for client-side ambient presentation; no world or cloud query. */
+    public record Clock(long seed,double phase,double rate) {}
+    public static Clock clock(ServerLevel level) {
+        var world=WORLDS.get(level);var p=WindSettings.current().field();double now=level.getGameTime()/20.0;
+        if(world==null)return new Clock(0,now/p.fallbackPeriod(),1/p.fallbackPeriod());
+        var s=world.snapshot;return new Clock(world.seed,s.phase()+Math.max(0,now-s.time())*s.rate(),s.rate());
+    }
+
+
     /** O(1) read of the same immutable episode snapshot that drives physics, without a weather/noise query. */
     public static boolean isTurbulent(ServerLevel level,int bodyId) {
         var world=WORLDS.get(level);
