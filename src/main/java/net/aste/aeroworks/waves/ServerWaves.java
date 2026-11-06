@@ -76,7 +76,7 @@ public final class ServerWaves {
         STEP.get().begin(WavePhysicsConfig.current(),entry==null?null:entry.patch,ticks/20.0,gain);
         CURRENT.set(entry);
         if(entry!=null){
-            entry.applies++;
+            entry.body=body;entry.seen=level.getGameTime();entry.applies++;
             if(level.getGameTime()>=entry.nextObserve){entry.nextObserve=level.getGameTime()+20;STEP.get().observe(true);}
         }
     }
