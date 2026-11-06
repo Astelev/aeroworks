@@ -11,6 +11,24 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
 
 public final class WaveTest {
+    private static JarFile sodium(Path path)throws Exception {
+        var jar=new JarFile(path.toFile());
+        if(jar.getJarEntry("net/caffeinemc/mods/sodium/client/gl/shader/ShaderLoader.class")!=null) return jar;
+        System.out.println("Inspecting Sodium archive "+path);
+        var entries=jar.stream().filter(e->e.getName().endsWith(".jar")).toList();
+        for(var e:entries) {
+            Path nested=Files.createTempFile("sodium-contract-",".jar");
+            try(var in=jar.getInputStream(e)) { Files.copy(in,nested,StandardCopyOption.REPLACE_EXISTING); }
+            var candidate=new JarFile(nested.toFile());
+            if(candidate.getJarEntry("net/caffeinemc/mods/sodium/client/gl/shader/ShaderLoader.class")!=null) {
+                System.out.println("Sodium terrain renderer is bundled in "+e.getName());
+                jar.close(); return candidate;
+            }
+            candidate.close(); Files.delete(nested);
+        }
+        jar.stream().filter(e->e.getName().contains("Shader")||e.getName().endsWith(".jar")).forEach(e->System.out.println(e.getName()));
+        throw new AssertionError("Sodium terrain renderer class not found");
+    }
     private static void check(boolean ok,String message) { if(!ok) throw new AssertionError(message); }
     private static String read(JarFile jar,String path)throws Exception {
         try(var in=jar.getInputStream(jar.getJarEntry(path))) { return new String(in.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8); }
@@ -50,7 +68,7 @@ public final class WaveTest {
         for(int z=0;z<size;z++) for(int x=21;x<size;x++) h[z*size+x]=70.88789f;
         field=ShoreField.build(h,size,4,16);
         check(field[(20*size+20)*2+1]==0,"Different water levels blend together");
-        try(var jar=new JarFile(args[0])) {
+        try(var jar=sodium(Path.of(args[0]))) {
             target(jar,"gl/shader/ShaderLoader","getShaderSource","(Lnet/minecraft/resources/ResourceLocation;)Ljava/lang/String;");
             String pass="(Lnet/caffeinemc/mods/sodium/client/render/chunk/terrain/TerrainRenderPass;)V";
             target(jar,"render/chunk/ShaderChunkRenderer","begin",pass);
