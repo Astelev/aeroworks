@@ -15,6 +15,8 @@ public class ExampleModClient {
         modEventBus.addListener(ExampleModClient::onClientSetup);
         net.aste.aeroworks.failure.FailureVisuals.setClientTick(net.aste.aeroworks.client.FailureSmoke::tick);
         modEventBus.addListener(net.aste.aeroworks.client.WindVisualEvents::registerParticles);
+        net.aste.aeroworks.compat.deepseas.DeepSeasWind.installClient((payload,context)->
+                net.aste.aeroworks.compat.deepseas.DeepSeasWind.receive(Minecraft.getInstance().level,payload));
         net.aste.aeroworks.network.WindVisualNetwork.setReceiver(net.aste.aeroworks.client.WindVisualEvents::receive);
         container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT,
                 net.aste.aeroworks.client.WindVisualConfig.SPEC,"aste_aeroworks-wind-client.toml");

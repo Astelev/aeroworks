@@ -31,6 +31,7 @@ public class Aeroworks {
 
         net.aste.aeroworks.wind.WindParticles.REGISTER.register(modEventBus);
         modEventBus.addListener(net.aste.aeroworks.network.WindVisualNetwork::register);
+        modEventBus.addListener(net.aste.aeroworks.compat.deepseas.DeepSeasWind::register);
 
         // Register ourselves for server and other game events we are interested in.
         // Note that this is necessary if and only if we want *this* class (ExampleMod) to respond directly to events.
