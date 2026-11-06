@@ -32,6 +32,9 @@ public final class RainOptimizationTest {
         check(RainRaySchedule.refresh(11,10,3,true,false,true),"Near camera exact every tick");
         check(RainRaySchedule.refresh(11,10,3,true,true,false),"Changed rain angle invalidates ray");
         check(RainRaySchedule.refresh(11,10,1,true,false,false),"Interval one restores full ray frequency");
+        check(RainRaySchedule.behind(-10,-2,.5),"Fully behind-camera strip culled");
+        check(!RainRaySchedule.behind(-20,4,.5),"Slanted ray crossing camera plane retained");
+        check(!RainRaySchedule.behind(-.2,-.3,2),"Wide billboard crossing camera plane retained");
         try(var jar=new JarFile(args[0])){
             var world=read(jar,"dev/nonamecrackers2/simpleclouds/client/renderer/WorldEffects");
             var tick=method(world,"tick");var render=method(world,"renderRain");

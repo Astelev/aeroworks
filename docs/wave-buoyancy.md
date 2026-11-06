@@ -36,7 +36,7 @@ Crest foam is a water-shader effect, not a particle system. A crest varying and 
 `aste_aeroworks-rain-client.toml` controls optimizations for the exact 0.7.3 precipitation path. The original strip density, scan volume, textures, rain/snow appearance, lifetime, sounds and lightning remain in place:
 
 * Reject deterministic spawn candidates before allocating their BlockPos and RNG. The filter reproduces Minecraft LegacyRandomSource's first bounded roll exactly; accepted candidates still run the native biome and spawn checks. Reuse the seeded RNG for these checks.
-* Reuse per-strip render scratch vectors/quaternions and cache packed lighting within one game tick instead of querying it at every rendered frame.
+* Reuse per-strip render scratch vectors/quaternions and cache packed lighting within one game tick instead of querying it at every rendered frame. Skip strips wholly behind the camera plane using the full slanted 32-block segment plus billboard width; strips crossing the view plane are retained.
 * Cache only distant unchanged-angle rain raycasts, default interval 3 ticks (at most 150 ms). First samples, changed angles and rays passing within 8 horizontal blocks of the camera are checked every tick. Initial refreshes are staggered. Moving distant roofs can therefore take up to the configured interval to update clipping. Set `distant_ray_interval=1` for original collision frequency, or `enabled=false` for the full original path.
 
 Tests compare 200,000 seeded spawn decisions against Minecraft and pin constructor, RNG, precipitation, lighting and scratch-object hooks to the supplied Simple Clouds JAR. These are workload reductions, not a measured FPS claim for the complete modpack.

@@ -55,6 +55,15 @@ public abstract class CloudRainQuadMixin {
         width=initialWidth*Math.min(1F,tickCount<lifeSpan-20?tickCount/20F:(lifeSpan-tickCount)/20F);
         ci.cancel();
     }
+    @Inject(method="render",at=@At("HEAD"),cancellable=true,require=1)
+    private void aste_aeroworks$behindCamera(com.mojang.blaze3d.vertex.PoseStack pose,
+            com.mojang.blaze3d.vertex.VertexConsumer vertices,float partial,int light,double x,double y,double z,CallbackInfo ci){
+        if(!RainConfig.ENABLED.get()||aste_aeroworks$start==null||xRot!=aste_aeroworks$lastX||yRot!=aste_aeroworks$lastY)return;
+        var forward=Minecraft.getInstance().gameRenderer.getMainCamera().getLookVector();
+        double a=(aste_aeroworks$start.x-x)*forward.x()+(aste_aeroworks$start.y-y)*forward.y()+(aste_aeroworks$start.z-z)*forward.z();
+        double b=(aste_aeroworks$end.x-x)*forward.x()+(aste_aeroworks$end.y-y)*forward.y()+(aste_aeroworks$end.z-z)*forward.z();
+        if(RainRaySchedule.behind(a,b,initialWidth*.5))ci.cancel();
+    }
     @WrapOperation(method="render",at=@At(value="NEW",target="()Lorg/joml/Quaternionf;"),require=1,allow=1)
     private Quaternionf aste_aeroworks$rotation(Operation<Quaternionf> original){
         return RainConfig.ENABLED.get()?aste_aeroworks$rotation.identity():original.call();
