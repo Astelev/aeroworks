@@ -109,10 +109,10 @@ public final class WaveTest {
             check(!patched.equals(vertex),"Sodium shader was not patched");
             check(WaveShader.patch(patched).equals(patched),"Wave shader patched twice");
             String fragment=read(jar,"assets/sodium/shaders/blocks/block_layer_opaque.fsh");
-            check(WaveShader.compiledSource(fragment).equals(fragment),"Fragment source changed");
+            check(WaveShader.compiledSource(fragment).contains("aste_applyFoam"),"Crest foam missing from native terrain fragment");
             String hullFragment=com.maxenonyme.createsubmarine.submarine.compat.sodium.WaterOcclusionPatch.apply(fragment,false);
             check(hullFragment.contains("SableCloseSampler") && hullFragment.contains("discard"),"Deep Seas hull clipping not inserted");
-            check(WaveShader.compiledSource(hullFragment).equals(hullFragment),"Deep Seas hull fragment source changed");
+            check(WaveShader.compiledSource(hullFragment).contains("SableCloseSampler")&&WaveShader.compiledSource(hullFragment).contains("aste_applyFoam"),"Foam must coexist with original hull-depth fragment");
             var mask=new DeepSeasWaterMask.NativeMask(true);
             check(mask.patch(fragment).equals(hullFragment),"Restoration differs from Deep Seas' original algorithm");
             check(mask.patch(hullFragment).equals(hullFragment),"Original mask injected twice");
@@ -137,7 +137,7 @@ public final class WaveTest {
             Files.writeString(Path.of("build/wave-test/terrain-veil.vsh"),veilPatched);
             String finalFragment=veilFormat(expand(jar,fragment).replace("#version 330 core",
                     "#version 330 core\n#define USE_FOG\n#define MAX_TEXTURE_LOD_BIAS 16"),Path.of(args[2]));
-            String restoredMask=mask.patch(finalFragment);
+            String restoredMask=mask.patch(WaveShader.compiledSource(finalFragment));
             check(restoredMask.contains("SableCloseSampler") && restoredMask.contains("gl_FragCoord.z"),"Final mask missing");
             Files.writeString(Path.of("build/wave-test/hull-fragment.fsh"),restoredMask);
         }

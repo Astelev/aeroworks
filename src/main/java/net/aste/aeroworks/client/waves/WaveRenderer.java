@@ -178,6 +178,8 @@ public final class WaveRenderer {
         double direction=profile.radians(), length=profile.wavelength();
         double speed=profile.speed(), seconds=(level.getGameTime()+partial)/20.0;
         WaveDetailRenderer.bind(program,level,camera,profile,seconds);
+        GL33C.glUniform1f(loc(program,"aste_FoamStrength"),WaveConfig.FOAM.get()?WaveConfig.FOAM_STRENGTH.get().floatValue():0);
+        GL33C.glUniform2f(loc(program,"aste_FoamOrigin"),(float)(camera.x-Math.floor(camera.x/256)*256),(float)(camera.z-Math.floor(camera.z/256)*256));
         GL33C.glUniform1i(loc(program,"aste_WaveShore"),UNIT);
         GL33C.glUniform3f(loc(program,"aste_WaveGrid"),(float)(camera.x-originX),(float)(camera.z-originZ),(float)camera.y);
         GL33C.glUniform4f(loc(program,"aste_WaveProfile"),(float)(WaveMath.TAU*Math.cos(direction)/length),

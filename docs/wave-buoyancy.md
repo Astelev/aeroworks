@@ -24,3 +24,19 @@ The local ambient wind speed is divided by the configured storm speed **at the h
 Broad value noise modulates the main wave's amplitude and phase (`noise_strength=.2`, `noise_scale=48` blocks, `noise_period=24` seconds). It is deterministic in world space and time. A pair of oblique shorter waves, with stronger and faster noise modulation, activates above `chop_threshold=.65`, i.e. 65% of the configured storm wind, and blends in smoothly. Defaults: `chop_fraction=.35` of main amplitude, `chop_length=.25` of main wavelength, `chop_speed=1.7` times main speed. The main carrier keeps its continuous phase as wind energy changes; a weather transition does not reset the wave clock.
 
 Wind energy is sampled at 64-block knots once per second from the existing cached ambient wind field. Aircraft-specific turbulence is excluded. Targets interpolate over two seconds, starting from the previous interpolated value. The server retains at most 1024 knots per dimension and sends at most 121 nearby knots per player each second (about 3 KiB). Both buoyancy paths and the vertex shader evaluate the same interpolated grid and the same spectrum. CPU preparation computes the wave coefficients once per body/substep; the per-cell path has no weather, world or block queries. Native Deep Seas fragment masking is unchanged; wind, shore and hull textures use separate units 6, 7, 8/9.
+
+## Crest foam and storm shape
+
+`wave-foam-r5` (wave network protocol **4**) shapes the main sine with a zero-mean second harmonic as the strong-wind gate rises. Crests become narrower and troughs broader without raising the mean water level or exceeding the existing amplitude bound. The same shaped spectrum is used for air-cell buoyancy, solid-block correction and rendering.
+
+Crest foam is a water-shader effect, not a particle system. A crest varying and a small periodic procedural breakup pattern whiten the water before native fog. Troughs, dry terrain and lower underwater vertices do not receive foam; original Deep Seas fragment-depth clipping still discards water inside hulls. The client settings `foam` and `foam_strength` in `aste_aeroworks-waves-client.toml` control presentation only.
+
+## Simple Clouds rain optimizations
+
+`aste_aeroworks-rain-client.toml` controls optimizations for the exact 0.7.3 precipitation path. The original strip density, scan volume, textures, rain/snow appearance, lifetime, sounds and lightning remain in place:
+
+* Reject deterministic spawn candidates before allocating their BlockPos and RNG. The filter reproduces Minecraft LegacyRandomSource's first bounded roll exactly; accepted candidates still run the native biome and spawn checks. Reuse the seeded RNG for these checks.
+* Reuse per-strip render scratch vectors/quaternions and cache packed lighting within one game tick instead of querying it at every rendered frame.
+* Cache only distant unchanged-angle rain raycasts, default interval 3 ticks (at most 150 ms). First samples, changed angles and rays passing within 8 horizontal blocks of the camera are checked every tick. Initial refreshes are staggered. Moving distant roofs can therefore take up to the configured interval to update clipping. Set `distant_ray_interval=1` for original collision frequency, or `enabled=false` for the full original path.
+
+Tests compare 200,000 seeded spawn decisions against Minecraft and pin constructor, RNG, precipitation, lighting and scratch-object hooks to the supplied Simple Clouds JAR. These are workload reductions, not a measured FPS claim for the complete modpack.

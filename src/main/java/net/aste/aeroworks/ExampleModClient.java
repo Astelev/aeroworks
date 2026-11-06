@@ -27,6 +27,8 @@ public class ExampleModClient {
                 net.aste.aeroworks.client.waves.WaveConfig.SPEC,"aste_aeroworks-waves-client.toml");
         container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT,
                 net.aste.aeroworks.client.CloudFogConfig.SPEC);
+        container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT,
+                net.aste.aeroworks.client.rain.RainConfig.SPEC,"aste_aeroworks-rain-client.toml");
         // Allows NeoForge to create a config screen for this mod's configs.
         // The config screen is accessed by going to the Mods screen > clicking on your mod > clicking on config.
         // Do not forget to add translations for your config options to the en_us.json file.

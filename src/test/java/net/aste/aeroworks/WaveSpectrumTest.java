@@ -26,10 +26,11 @@ public final class WaveSpectrumTest {
         var d=WaveDetail.DEFAULT;var p=profile(d);var grid=wind(1,1,0,0,0);
         var baseline=new WaveDetail(true,16,0,48,24,.65,0,.25,1.7);
         double x=7.17,z=-4.1,t=11;
-        double calm=WaveShape.height(profile(baseline),wind(.25f,.25f,0,0,0),x,z,t,32);
-        double strong=WaveShape.height(profile(baseline),grid,x,z,t,32);
+        double calm=WaveShape.height(profile(baseline),wind(.16f,.16f,0,0,0),x,z,t,32);
+        var moderate=wind(.64f,.64f,0,0,0);
+        double strong=WaveShape.height(profile(baseline),moderate,x,z,t,32);
         near(strong,calm*2,1e-9,"Wave energy follows actual/storm wind ratio");
-        double shallow=WaveShape.height(profile(baseline),grid,x,z,t,4);
+        double shallow=WaveShape.height(profile(baseline),moderate,x,z,t,4);
         near(shallow,strong*WaveMath.smooth(.25),1e-9,"Depth attenuates main swell");
         near(WaveShape.height(p,wind(0,0,0,0,0),x,z,t,32),0,0,"No local wind energy");
         near(WaveWindStates.stormSpeed(WindParameters.DEFAULT,64),6,0,"Sea uses configured surface storm wind");
@@ -69,6 +70,14 @@ public final class WaveSpectrumTest {
         try{WaveStatePayload.CODEC.encode(buf,packet);check(buf.readableBytes()<4096,"121 coarse sea cells stay within 4KiB/second per player");
             check(WaveStatePayload.CODEC.decode(buf).equals(packet)&&buf.readableBytes()==0,"Full detail/wind state roundtrip");
         }finally{buf.release();}
+        double mean=0;
+        for(int i=0;i<10000;i++)mean+=WaveShape.crest(Math.sin(i*WaveMath.TAU/10000),1);
+        near(mean/10000,0,1e-9,"Sharp storm profile has no artificial mean water-level shift");
+        near(WaveShape.crest(1,1),1,1e-12,"Storm crest remains amplitude-bounded");
+        double eps=.01;
+        double sharpCurvature=(1-WaveShape.crest(Math.sin(Math.PI/2+eps),1))/(eps*eps);
+        check(sharpCurvature>.7,"Storm crest is sharper than a sine");
+        near(WaveShape.crest(.4,0),.4,0,"Calm profile unchanged");
         // CPU reference fixtures consumed by real OpenGL tests, including large/negative coordinates.
         var rows=new ArrayList<String>();var random=new Random(431);
         for(int i=0;i<64;i++){

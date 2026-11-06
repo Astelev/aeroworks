@@ -7,6 +7,12 @@ uniform vec4 aste_WaveStill;
 uniform vec4 aste_WaveFlow;
 uniform vec4 aste_WaveOverlay;
 uniform float aste_WaveEnabled;
+uniform float aste_FoamStrength;
+uniform vec2 aste_FoamOrigin;
+out float v_asteWaveFoam;
+out vec2 v_asteWaveFoamUV;
+float aste_waveEnergy;
+float aste_waveStorm;
 
 // CPU counterpart: WaveSpectrum / WaveShape. Integer hash is identical on both sides.
 uniform float aste_WaveDetailed;
@@ -45,14 +51,18 @@ float aste_windRatio(vec2 p) {
                mix(aste_windNode(i+ivec2(0,1)),aste_windNode(i+ivec2(1,1)),f.x),f.y);
 }
 float aste_waveHeight(vec2 p,float depth) {
+    aste_waveEnergy=1.0;aste_waveStorm=0.0;
     float phase=dot(p,aste_WaveProfile.xy)+aste_WaveProfile.z;
     if(aste_WaveDetailed<0.5)return sin(phase)*aste_WaveProfile.w;
     float ratio=aste_windRatio(p);
     float energy=sqrt(max(0.0,ratio))*smoothstep(0.0,aste_WaveDetail.x,depth);
+    aste_waveEnergy=energy;
     if(energy==0.0)return 0.0;
     float n=aste_WaveDetail.y==0.0?0.0:aste_noise(vec3(p*aste_WaveNoiseA.w+aste_WaveNoiseA.xy,aste_WaveNoiseA.z),aste_WaveNoiseOriginA,aste_WaveSeed);
-    float mainWave=sin(phase+n*aste_WaveDetail.y*0.6)*(1.0+n*aste_WaveDetail.y);
     float gate=smoothstep(aste_WaveDetail.z,1.0,ratio),chop=0.0;
+    aste_waveStorm=gate;
+    float s=sin(phase+n*aste_WaveDetail.y*0.6),a=0.24*gate;
+    float mainWave=(s+a*(2.0*s*s-1.0))/(1.0+a)*(1.0+n*aste_WaveDetail.y);
     if(gate>0.0&&aste_WaveDetail.w>0.0) {
         float jitter=aste_noise(vec3(p*aste_WaveNoiseB.w+aste_WaveNoiseB.xy,aste_WaveNoiseB.z),aste_WaveNoiseOriginB,aste_WaveSeed^0x5bd1e995u);
         chop=(0.7*sin(dot(p,aste_WaveChopA.xy)+aste_WaveChopA.z+1.8*jitter)
@@ -66,6 +76,7 @@ bool aste_waveSprite(vec2 uv, vec4 bounds) {
     return all(greaterThanEqual(uv, bounds.xy)) && all(lessThanEqual(uv, bounds.zw));
 }
 vec3 aste_wavePosition(vec3 p, vec2 uv) {
+    v_asteWaveFoam=0.0;v_asteWaveFoamUV=vec2(0.0);
     if (aste_WaveEnabled < 0.5) return p;
     if (!(aste_waveSprite(uv, aste_WaveStill) || aste_waveSprite(uv, aste_WaveFlow)
           || aste_waveSprite(uv, aste_WaveOverlay))) return p;
@@ -80,6 +91,10 @@ vec3 aste_wavePosition(vec3 p, vec2 uv) {
     if (top < 0.75 || top > 1.04) return p;
     float edge = min(min(cell.x, cell.y), min(128.0 - cell.x, 128.0 - cell.y));
     float weight = field.g * smoothstep(0.0, 8.0, edge);
-    p.y += aste_waveHeight(p.xz,field.b)*weight;
+    float height=aste_waveHeight(p.xz,field.b);
+    float crest=smoothstep(0.45,0.92,height/max(0.001,aste_WaveProfile.w*aste_waveEnergy));
+    v_asteWaveFoam=crest*weight*aste_FoamStrength*smoothstep(0.01,0.1,aste_WaveProfile.w*aste_waveEnergy)*(0.65+0.35*aste_waveStorm);
+    v_asteWaveFoamUV=(p.xz+aste_FoamOrigin)*1.5;
+    p.y += height*weight;
     return p;
 }

@@ -15,6 +15,10 @@ public final class WaveShape {
         double b=mix(mix(hash(ix,iz,it+1,seed),hash(ix+1,iz,it+1,seed),fx),mix(hash(ix,iz+1,it+1,seed),hash(ix+1,iz+1,it+1,seed),fx),fz);
         return mix(a,b,ft);
     }
+    /** Zero-mean second harmonic: narrow crest and broad trough, bounded by one. */
+    public static double crest(double sine,double storm){
+        double a=.24*storm;return (sine+a*(2*sine*sine-1))/(1+a);
+    }
     private static double mix(double a,double b,double f){return a+(b-a)*f;}
     public static double height(WaveParameters p,WaveWindGrid wind,double x,double z,double seconds,double depth){
         var spectrum=new WaveSpectrum();spectrum.begin(p,wind,seconds);

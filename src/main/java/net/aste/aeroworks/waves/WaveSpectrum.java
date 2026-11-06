@@ -19,8 +19,8 @@ public final class WaveSpectrum {
         double ratio=wind.ratio(x,z,seconds),energy=Math.sqrt(ratio)*WaveMath.smooth(depth/d.fullDepth());
         if(energy==0)return 0;
         double n=d.noiseStrength()==0?0:WaveShape.noise(x/d.noiseScale(),z/d.noiseScale(),seconds/d.noisePeriod(),wind.seed());
-        double main=WaveMath.fastSin(mainPhase+n*d.noiseStrength()*.6)*(1+n*d.noiseStrength());
         double gate=WaveMath.smooth((ratio-d.chopThreshold())/(1-d.chopThreshold())),chop=0;
+        double main=WaveShape.crest(WaveMath.fastSin(mainPhase+n*d.noiseStrength()*.6),gate)*(1+n*d.noiseStrength());
         if(gate>0&&d.chopFraction()>0){
             double jitter=WaveShape.noise(x/(d.noiseScale()*.35),z/(d.noiseScale()*.35),seconds/(d.noisePeriod()*.23),wind.seed()^0x5bd1e995);
             chop=(.7*WaveMath.fastSin(ax*x+az*z+ap+1.8*jitter)+.3*WaveMath.fastSin(bx*x+bz*z+bp-1.2*jitter))

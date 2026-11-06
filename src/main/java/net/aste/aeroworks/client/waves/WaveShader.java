@@ -21,9 +21,9 @@ public final class WaveShader {
     }
     public static String compiledSource(String source) {
         compileHookSeen = true;
-        // Structural selection: no dependency on resource names or loaders. Fragments stay byte-for-byte intact.
+        // Structural selection on final sources; foam runs before native fog and hull clipping.
         if (!source.contains("_vert_position") || !source.contains("u_RegionOffset") || !source.contains("gl_Position"))
-            return source;
+            return WaveFoamShader.patch(source);
         return patch(source);
     }
     public static String patch(String source) {

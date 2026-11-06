@@ -163,7 +163,7 @@ close_tex,far_tex=U(),U(); gen_tex(1,C.byref(close_tex)); gen_tex(1,C.byref(far_
 clear_color=bind(gl,'glClearColor',None,F,F,F,F); clear=bind(gl,'glClear',None,U)
 clear_color(0,0,0,0)
 
-def render_mask(angle,phase,mask_enabled=True,empty=False):
+def render_mask(angle,phase,mask_enabled=True,empty=False,foam=False):
     c,s=math.cos(angle),math.sin(angle)
     front,back=(F*(size*size))(),(F*(size*size))()
     expected=[]
@@ -187,7 +187,11 @@ def render_mask(angle,phase,mask_enabled=True,empty=False):
     pixels=(F*(size*size*4))(); read(0,0,size,size,0x1908,0x1406,pixels)
     assert error()==0
     for i,wanted in enumerate(expected):
-        assert abs(pixels[4*i+3]-wanted)<1e-4,(angle,phase,i,pixels[4*i+3],wanted)
+        if foam and wanted:
+            assert .5999<=pixels[4*i+3]<=.8501,(i,pixels[4*i+3])
+        else:
+            assert abs(pixels[4*i+3]-wanted)<1e-4,(angle,phase,i,pixels[4*i+3],wanted)
+    if foam:render_mask.last_pixels=tuple(pixels)
     return sum(1 for p in expected if p==0)
 
 for degrees in [0,37,81]:
@@ -212,6 +216,25 @@ tex_image(0x0DE1,0,0x8814,129,129,0,0x1908,0x1406,depth_field)
 for degrees in [0,37,81]:
     for phase in [math.pi/2,-math.pi/2]:assert render_mask(math.radians(degrees),phase)>50
 print('Detailed wave/wind path: original hull masking intact with independent texture units 6/7/8/9')
+
+# Crest foam must whiten/tint actual water before fog, preserve troughs and retain hull holes.
+water_tex=U();gen_tex(1,C.byref(water_tex));active_tex(0x84C2);bind_tex(0x0DE1,water_tex)
+tex_param(0x0DE1,0x2801,0x2600);tex_param(0x0DE1,0x2800,0x2600)
+tex_image(0x0DE1,0,0x8814,1,1,0,0x1908,0x1406,(F*4)(.05,.2,.5,.6))
+u1f(loc('aste_FoamStrength'),.85);u2f(loc('aste_FoamOrigin'),0,0)
+assert render_mask(.64,math.pi/2,foam=True)>50
+crest_pixels=render_mask.last_pixels
+assert render_mask(.64,-math.pi/2,foam=True)>50
+trough_pixels=render_mask.last_pixels
+crest_red=[crest_pixels[i] for i in range(0,len(crest_pixels),4) if crest_pixels[i+3]>.1]
+trough_red=[trough_pixels[i] for i in range(0,len(trough_pixels),4) if trough_pixels[i+3]>.1]
+assert sum(crest_red)/len(crest_red)>sum(trough_red)/len(trough_red)+.15
+assert max(crest_red)-min(crest_red)>.05, 'Foam must have patchy detail, not uniform white bands'
+assert abs(sum(trough_red)/len(trough_red)-.05)<1e-4, 'Trough water tint changed'
+u1f(loc('aste_FoamStrength'),0)
+render_mask(.64,math.pi/2,foam=True)
+assert max(render_mask.last_pixels[::4])<.051, 'Foam disable must restore native water colour'
+print('Crest foam: whitened irregular crest, native trough colour, disable and rotated hull-depth clipping verified on GPU; no particles')
 
 # Exercise the detailed height function itself against CPU fixtures, so shore vertices,
 # air-cell buoyancy and solid-block buoyancy cannot quietly use different spectra.

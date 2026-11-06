@@ -10,7 +10,9 @@
     "client.CloudFogDhMixin",
     "client.WeatherRendererInvoker",
     "client.WaveShaderMixin",
-    "client.WaveRendererMixin"
+    "client.WaveRendererMixin",
+    "rain.CloudRainWorldMixin",
+    "rain.CloudRainQuadMixin"
   ],
   "injectors": {
     "defaultRequire": 1
