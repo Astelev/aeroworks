@@ -175,7 +175,7 @@ def testWaves=tasks.register('testWaves',JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath=sourceSets.test.runtimeClasspath
     mainClass='net.aste.aeroworks.WaveTest'
-    doFirst { args configurations.sodiumContract.singleFile.absolutePath, configurations.deepSeas.singleFile.absolutePath }
+    args configurations.sodiumContract.singleFile.absolutePath, configurations.deepSeas.singleFile.absolutePath
     javaLauncher=javaToolchains.launcherFor { languageVersion=JavaLanguageVersion.of(21) }
 }
 tasks.named('check') { dependsOn testWaves }

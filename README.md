@@ -450,3 +450,27 @@ static_lateral_friction = 1.0
 Исправлено расхождение направления между флюгерами с парусом и без: обычный флюгер больше не получает условно ясную погоду. Базовый ветер использует общую погоду Simple Clouds по мировым координатам, включая места рядом с игроками без физических конструкций. Погодные метаданные кэшируются ячейками 128 блоков, обновляются не чаще раза в секунду, максимум 16 ячеек за тик и 256 активных ячеек на мир; плотность облаков для этих ячеек не вычисляется. Авиационные эффекты турбулентности остаются индивидуальными для аппарата.
 
 Те же погодные ячейки и переходы передаются клиенту; отдельно передаются также векторы физических тел без парусов. Формат пакета обновлён: обновите AeroWorks на обеих сторонах. Совместимость Homeostatic Seasons / Climate Settings не изменялась.
+
+
+## Water waves (first visual stage)
+
+Native Sodium 0.8.13 water vertices now follow one traveling sine.
+`aste_aeroworks-waves-client.toml` controls amplitude (default 0.5 blocks),
+wavelength (32 blocks), speed (4 blocks/s), direction (35 degrees) and shore fade (16 blocks).
+The crest-to-trough range is twice the amplitude. No water blocks are changed.
+
+A bounded 129×129 map at 4-block spacing is rebuilt incrementally (512 cells/tick),
+using only already loaded chunks. Water shallower than three blocks, small ponds,
+shorelines, different water levels and unloaded/map boundaries remain flat or fade out.
+The map covers 512×512 blocks around the player; waves smoothly flatten near its edge.
+No chunk rebuild is requested for animation.
+
+Deep Seas 3.4.7 keeps its fluid meshing and fragment depth discard between hull front/back
+depth buffers. The vertex displacement runs before that existing clipping.
+This avoids an independent water overlay bypassing sealed-compartment culling.
+The fallback mesher's occlusion cancellation also remains unchanged.
+
+This stage is visual: buoyancy, swimming, underwater fog and water block logic still use
+the original water level. It does not modify Distant Horizons water or external Iris shader
+packs; these waves are disabled while a shader pack is active. Without Sodium the existing
+water renderer remains in use. Runtime visual verification in Minecraft is still needed.
