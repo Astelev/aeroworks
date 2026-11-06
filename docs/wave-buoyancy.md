@@ -40,3 +40,12 @@ Crest foam is a water-shader effect, not a particle system. A crest varying and 
 * Cache only distant unchanged-angle rain raycasts, default interval 3 ticks (at most 150 ms). First samples, changed angles and rays passing within 8 horizontal blocks of the camera are checked every tick. Initial refreshes are staggered. Moving distant roofs can therefore take up to the configured interval to update clipping. Set `distant_ray_interval=1` for original collision frequency, or `enabled=false` for the full original path.
 
 Tests compare 200,000 seeded spawn decisions against Minecraft and pin constructor, RNG, precipitation, lighting and scratch-object hooks to the supplied Simple Clouds JAR. These are workload reductions, not a measured FPS claim for the complete modpack.
+
+
+## Curved crest fronts
+
+`wave-warp-r6` uses wave network protocol **5**. `detail.crest_distortion` controls smooth horizontal domain warping of the carrier phases, default **0.22 of main wavelength**, range 0..0.35. At the default wavelength of 32 blocks each warp component has a maximum displacement of 7.04 blocks; actual smoothly interpolated displacements are generally smaller. Independent X/Z noise bends crest lines instead of only varying their height. The short-wave carriers use the same distorted coordinates; foam follows the resulting crest geometry.
+
+The first warp component reuses the existing broad noise sample; the second adds one extra value-noise sample, sharing `noise_scale` and `noise_period`. Warp strength is independent of `noise_strength`, so turning off height noise still permits curved crests. Set `crest_distortion=0` to disable the new curvature. Wind/depth/shore queries remain at the original world positions: distortion changes only carrier phase, so it does not move coastlines or hull masks. Both native buoyancy integrations and GLSL use the same formula and coefficients.
+
+Tests track crest positions along a transverse line with amplitude noise/chop disabled, check continuity at negative/positive spatial and temporal lattice boundaries, and compare distorted Java/GLSL heights at distant coordinates.

@@ -16,6 +16,7 @@ float aste_waveStorm;
 
 // CPU counterpart: WaveSpectrum / WaveShape. Integer hash is identical on both sides.
 uniform float aste_WaveDetailed;
+uniform float aste_WaveWarp; // horizontal distortion in blocks
 uniform vec4 aste_WaveDetail; // full depth, noise strength, chop threshold, chop fraction
 uniform vec4 aste_WaveChopA; // kx, kz, camera/time phase, unused
 uniform vec4 aste_WaveChopB;
@@ -58,15 +59,21 @@ float aste_waveHeight(vec2 p,float depth) {
     float energy=sqrt(max(0.0,ratio))*smoothstep(0.0,aste_WaveDetail.x,depth);
     aste_waveEnergy=energy;
     if(energy==0.0)return 0.0;
-    float n=aste_WaveDetail.y==0.0?0.0:aste_noise(vec3(p*aste_WaveNoiseA.w+aste_WaveNoiseA.xy,aste_WaveNoiseA.z),aste_WaveNoiseOriginA,aste_WaveSeed);
+    float n=aste_WaveDetail.y==0.0&&aste_WaveWarp==0.0?0.0:aste_noise(vec3(p*aste_WaveNoiseA.w+aste_WaveNoiseA.xy,aste_WaveNoiseA.z),aste_WaveNoiseOriginA,aste_WaveSeed);
+    vec2 warp=vec2(0.0);
+    if(aste_WaveWarp>0.0) {
+        float nz=aste_noise(vec3(p*aste_WaveNoiseA.w+aste_WaveNoiseA.xy,aste_WaveNoiseA.z),aste_WaveNoiseOriginA,aste_WaveSeed^0x68bc21ebu);
+        warp=vec2(n,nz)*aste_WaveWarp;
+        phase+=dot(warp,aste_WaveProfile.xy);
+    }
     float gate=smoothstep(aste_WaveDetail.z,1.0,ratio),chop=0.0;
     aste_waveStorm=gate;
     float s=sin(phase+n*aste_WaveDetail.y*0.6),a=0.24*gate;
     float mainWave=(s+a*(2.0*s*s-1.0))/(1.0+a)*(1.0+n*aste_WaveDetail.y);
     if(gate>0.0&&aste_WaveDetail.w>0.0) {
         float jitter=aste_noise(vec3(p*aste_WaveNoiseB.w+aste_WaveNoiseB.xy,aste_WaveNoiseB.z),aste_WaveNoiseOriginB,aste_WaveSeed^0x5bd1e995u);
-        chop=(0.7*sin(dot(p,aste_WaveChopA.xy)+aste_WaveChopA.z+1.8*jitter)
-             +0.3*sin(dot(p,aste_WaveChopB.xy)+aste_WaveChopB.z-1.2*jitter))
+        chop=(0.7*sin(dot(p+warp,aste_WaveChopA.xy)+aste_WaveChopA.z+1.8*jitter)
+             +0.3*sin(dot(p+warp,aste_WaveChopB.xy)+aste_WaveChopB.z-1.2*jitter))
              *(0.55+0.45*jitter)*aste_WaveDetail.w*gate;
     }
     return aste_WaveProfile.w*energy*(mainWave+chop);

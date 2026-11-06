@@ -78,6 +78,30 @@ public final class WaveSpectrumTest {
         double sharpCurvature=(1-WaveShape.crest(Math.sin(Math.PI/2+eps),1))/(eps*eps);
         check(sharpCurvature>.7,"Storm crest is sharper than a sine");
         near(WaveShape.crest(.4,0),.4,0,"Calm profile unchanged");
+        // Track actual crest locations along the transverse direction, rather than testing amplitude noise.
+        var warped=new WaveDetail(true,16,0,48,24,.65,0,.25,1.7,.22);
+        var straight=new WaveDetail(true,16,0,48,24,.65,0,.25,1.7,0);
+        var steady=wind(.5f,.5f,0,0,0);double angle=p.radians(),c=Math.cos(angle),sn=Math.sin(angle);
+        double minCrest=Double.POSITIVE_INFINITY,maxCrest=Double.NEGATIVE_INFINITY;
+        for(int cross=-96;cross<=96;cross+=12){
+            double bestU=0,bestHeight=-100;
+            for(double u=-2;u<=18;u+=.125){
+                double xx=u*c-cross*sn,zz=u*sn+cross*c;
+                double hh=WaveShape.height(profile(warped),steady,xx,zz,0,32);
+                if(hh>bestHeight){bestHeight=hh;bestU=u;}
+            }
+            minCrest=Math.min(minCrest,bestU);maxCrest=Math.max(maxCrest,bestU);
+            double xx=8*c-cross*sn,zz=8*sn+cross*c;
+            near(WaveShape.height(profile(straight),steady,xx,zz,0,32),.5*Math.sqrt(.5),1e-6,"Zero distortion restores straight carrier crests");
+        }
+        check(maxCrest-minCrest>2,"Crests must bend visibly by several blocks without amplitude noise or short waves");
+        // Spatial and temporal lattice boundaries must remain continuous even at high distortion.
+        var extreme=new WaveDetail(true,16,.2,48,24,.65,.35,.25,1.7,.35);
+        for(double boundary:new double[]{-96,-48,0,48,96}){
+            double a=WaveShape.height(profile(extreme),grid,boundary-1e-5,7,24-1e-5,32);
+            double b=WaveShape.height(profile(extreme),grid,boundary+1e-5,7,24+1e-5,32);
+            near(a,b,2e-4,"No seams at spatial/time noise-cell boundaries");
+        }
         // CPU reference fixtures consumed by real OpenGL tests, including large/negative coordinates.
         var rows=new ArrayList<String>();var random=new Random(431);
         for(int i=0;i<64;i++){

@@ -20,6 +20,7 @@ final class WaveDetailRenderer {
     static void bind(int program,ClientLevel level,Vec3 camera,WaveParameters p,double seconds){
         var d=p.detail();GL33C.glUniform1f(loc(program,"aste_WaveDetailed"),d.enabled()?1:0);
         if(!d.enabled())return;
+        GL33C.glUniform1f(loc(program,"aste_WaveWarp"),(float)(p.wavelength()*d.crestDistortion()));
         var grid=WaveClientState.wind(level);
         int active=GL33C.glGetInteger(GL33C.GL_ACTIVE_TEXTURE);
         GlStateManager._activeTexture(GL33C.GL_TEXTURE0+UNIT);
