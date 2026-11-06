@@ -12,9 +12,9 @@ public abstract class WaveShaderMixin {
     // Patch the final source, after Veil and any resource-loader replacements.
     // A changed upload contract must fail validation instead of silently losing the effect.
     @ModifyArg(method="<init>", at=@At(value="INVOKE", target=
-            "Lnet/caffeinemc/mods/sodium/client/gl/shader/ShaderWorkarounds;safeShaderSource(ILjava/lang/String;)V"),
+            "Lnet/caffeinemc/mods/sodium/client/gl/shader/ShaderWorkarounds;safeShaderSource(ILjava/lang/CharSequence;)V"),
             index=1, require=1)
-    private static String aste_aeroworks$waveShader(String source) {
-        return WaveShader.compiledSource(source);
+    private static CharSequence aste_aeroworks$waveShader(CharSequence source) {
+        return WaveShader.compiledSource(source.toString());
     }
 }
