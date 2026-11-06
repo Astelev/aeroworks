@@ -7,6 +7,7 @@ import java.util.Arrays;
 import net.aste.aeroworks.Aeroworks;
 import net.aste.aeroworks.waves.ShoreField;
 import net.aste.aeroworks.waves.WaveMath;
+import net.aste.aeroworks.waves.WaveTerrain;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -44,7 +45,6 @@ public final class WaveRenderer {
     private static int wetCells, waveCells, fieldCount;
     private static long ticks, lastReport;
     private static String lastStatus="";
-    private static final int[] scan=new int[5], completedScan=new int[5];
     private record Binding(int texture, int sampler) {}
     private WaveRenderer() {}
 
@@ -56,13 +56,13 @@ public final class WaveRenderer {
         event.getLeft().add("AeroWorks waves: "+status());
         event.getLeft().add("  compile="+WaveShader.compileHookSeen+", shader="+WaveShader.attached+", renderer="+rendererSeen+", uniform="+uniformSeen
                 +", water="+wetCells+", waves="+waveCells+", fields="+fieldCount);
-        event.getLeft().add("  excluded: unloaded/water/source/solid/shallow="+Arrays.toString(completedScan));
         event.getLeft().add("Deep Seas hull mask: "+DeepSeasWaterMask.status());
     }
 
     private static String status() {
         if(!WaveConfig.ENABLED.get()) return "disabled in config";
         if(!ModList.get().isLoaded("sodium")) return "Sodium absent";
+        if(!WaveClientState.current(level).enabled()) return "server waves disabled / awaiting server profile";
         if(shaderPack()) return "Iris shader pack active";
         if(!WaveShader.compileHookSeen) return "Sodium compile hook not called";
         if(!WaveShader.attached) return "terrain vertex shader not recognized";
@@ -71,7 +71,7 @@ public final class WaveRenderer {
         if(!ready && !upload) return "building water field "+cursor+"/"+(SIZE*SIZE);
         if(wetCells==0) return "no eligible surface water in loaded chunks";
         if(waveCells==0) return "water found, shore/shallow/unloaded boundary suppressed waves";
-        if(WaveConfig.AMPLITUDE.get()==0) return "amplitude is zero";
+        if(WaveClientState.current(level).amplitude()==0) return "amplitude is zero";
         return displacementEnabled ? "active" : "field ready, waiting for terrain draw";
     }
 
@@ -79,6 +79,7 @@ public final class WaveRenderer {
     public static void tick(ClientTickEvent.Post event) {
         var mc=Minecraft.getInstance();
         if(level!=mc.level) {
+            WaveClientState.clear(level);
             level=mc.level; heights=pending=null; ready=upload=false; nextRefresh=0;
             wetCells=waveCells=fieldCount=0; ticks=lastReport=0; lastStatus=""; displacementEnabled=false;
         }
@@ -87,32 +88,27 @@ public final class WaveRenderer {
             String report=status();
             if(!report.equals(lastStatus)) {
                 lastStatus=report;
-                Aeroworks.LOGGER.info("AeroWorks waves: {}; shader={}, renderer={}, uniform={}, water={}, waves={}, fields={}, excluded(unloaded/water/source/solid/shallow)={}",
-                        report,WaveShader.attached,rendererSeen,uniformSeen,wetCells,waveCells,fieldCount,Arrays.toString(completedScan));
+                Aeroworks.LOGGER.info("AeroWorks waves: {}; shader={}, renderer={}, uniform={}, water={}, waves={}, fields={}",
+                        report,WaveShader.attached,rendererSeen,uniformSeen,wetCells,waveCells,fieldCount);
             }
         }
         if(level==null || mc.player==null || mc.isPaused() || !WaveConfig.ENABLED.get()
-                || !ModList.get().isLoaded("sodium") || shaderPack()) return;
+                || !ModList.get().isLoaded("sodium") || shaderPack() || !WaveClientState.current(level).enabled()) return;
         if(heights==null) {
             if(level.getGameTime()<nextRefresh) return;
             buildX=Math.floorDiv(mc.player.getBlockX(),32)*32-(SIZE-1)*STEP/2;
             buildZ=Math.floorDiv(mc.player.getBlockZ(),32)*32-(SIZE-1)*STEP/2;
             heights=new float[SIZE*SIZE];
-            Arrays.fill(scan,0);
             Arrays.fill(heights,ShoreField.DRY); cursor=0;
         }
         for(int budget=0; budget<BUDGET && cursor<heights.length;budget++,cursor++) {
             int x=buildX+(cursor%SIZE)*STEP, z=buildZ+(cursor/SIZE)*STEP;
-            float h=column(x,z);
-            // Test the surrounding cell too: a single wet sample must not animate a thin stream.
-            if(h!=ShoreField.DRY) for(int dx=-2;dx<=2;dx+=4) for(int dz=-2;dz<=2;dz+=4)
-                if(column(x+dx,z+dz)!=h) h=ShoreField.DRY;
+            float h=WaveTerrain.cell(level,x,z,POS);
             heights[cursor]=h;
         }
         if(cursor==heights.length) {
-            pending=ShoreField.build(heights,SIZE,STEP,WaveConfig.SHORE_FADE.get().floatValue());
+            pending=ShoreField.build(heights,SIZE,STEP,(float)WaveClientState.current(level).shoreFade());
             wetCells=waveCells=0; fieldCount++;
-            System.arraycopy(scan,0,completedScan,0,scan.length);
             for(int i=0;i<heights.length;i++) {
                 if(heights[i]!=ShoreField.DRY) wetCells++;
                 if(pending[i*2+1]>.001f) waveCells++;
@@ -120,26 +116,6 @@ public final class WaveRenderer {
             nextX=buildX; nextZ=buildZ; upload=true; heights=null;
             nextRefresh=level.getGameTime()+8;
         }
-    }
-
-    private static float column(int x,int z) {
-        // Never request a chunk or wait for terrain generation.
-        var chunk=level.getChunkSource().getChunk(x>>4,z>>4,ChunkStatus.FULL,false);
-        if(chunk==null) { scan[0]++; return ShoreField.DRY; }
-        int y=chunk.getHeight(Heightmap.Types.WORLD_SURFACE,x&15,z&15);
-        if(y<level.getMinBuildHeight()+2) return ShoreField.DRY;
-        var state=chunk.getBlockState(POS.set(x,y,z));
-        if(!state.isAir() && !state.getFluidState().isEmpty()) {
-            var fluid=state.getFluidState();
-            if(!fluid.is(FluidTags.WATER)) { scan[1]++; return ShoreField.DRY; }
-            if(!fluid.isSource()) { scan[2]++; return ShoreField.DRY; }
-            if(!state.getCollisionShape(level,POS).isEmpty()) { scan[3]++; return ShoreField.DRY; }
-            for(int d=1;d<=2;d++) if(!chunk.getFluidState(POS.set(x,y-d,z)).is(FluidTags.WATER))
-                { scan[4]++; return ShoreField.DRY; }
-            // Store the source BLOCK height, not a hard-coded mesher surface height.
-            return y;
-        }
-        scan[1]++; return ShoreField.DRY;
     }
 
     private static boolean shaderPack() {
@@ -174,6 +150,8 @@ public final class WaveRenderer {
         GL33C.glUniform1f(enabled,0);
         var mc=Minecraft.getInstance();
         if(mc.level!=level || level==null || !WaveConfig.ENABLED.get() || shaderPack() || (!ready && !upload)) return;
+        var profile=WaveClientState.current(level);
+        if(!profile.enabled()) return;
         int active=GL33C.glGetInteger(GL33C.GL_ACTIVE_TEXTURE);
         GlStateManager._activeTexture(GL33C.GL_TEXTURE0+UNIT);
         int previous=GL33C.glGetInteger(GL33C.GL_TEXTURE_BINDING_2D);
@@ -192,13 +170,13 @@ public final class WaveRenderer {
         }
         GlStateManager._activeTexture(active);
         var camera=mc.gameRenderer.getMainCamera().getPosition();
-        double direction=Math.toRadians(WaveConfig.DIRECTION.get()), length=WaveConfig.WAVELENGTH.get();
-        double speed=WaveConfig.SPEED.get(), seconds=(level.getGameTime()+partial)/20.0;
+        double direction=profile.radians(), length=profile.wavelength();
+        double speed=profile.speed(), seconds=(level.getGameTime()+partial)/20.0;
         GL33C.glUniform1i(loc(program,"aste_WaveShore"),UNIT);
         GL33C.glUniform3f(loc(program,"aste_WaveGrid"),(float)(camera.x-originX),(float)(camera.z-originZ),(float)camera.y);
         GL33C.glUniform4f(loc(program,"aste_WaveProfile"),(float)(WaveMath.TAU*Math.cos(direction)/length),
                 (float)(WaveMath.TAU*Math.sin(direction)/length),
-                (float)WaveMath.phase(camera.x,camera.z,seconds,length,speed,direction),WaveConfig.AMPLITUDE.get().floatValue());
+                (float)WaveMath.phase(camera.x,camera.z,seconds,length,speed,direction),(float)profile.amplitude());
         sprite(program,"aste_WaveStill","water_still");
         sprite(program,"aste_WaveFlow","water_flow");
         sprite(program,"aste_WaveOverlay","water_overlay");

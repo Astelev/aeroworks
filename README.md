@@ -452,25 +452,45 @@ static_lateral_friction = 1.0
 Те же погодные ячейки и переходы передаются клиенту; отдельно передаются также векторы физических тел без парусов. Формат пакета обновлён: обновите AeroWorks на обеих сторонах. Совместимость Homeostatic Seasons / Climate Settings не изменялась.
 
 
-## Water waves (first visual stage)
+## Волны и плавучесть Deep Seas
 
-Native Sodium 0.8.13 water vertices now follow one traveling sine.
-`aste_aeroworks-waves-client.toml` controls amplitude (default 0.5 blocks),
-wavelength (32 blocks), speed (4 blocks/s), direction (35 degrees) and shore fade (16 blocks).
-The crest-to-trough range is twice the amplitude. No water blocks are changed.
+Поверхность воды Sodium 0.8.13 движется по бегущей синусоиде с затуханием у берегов.
+Профиль теперь задаётся сервером в `aste_aeroworks-waves-common.toml`: `enabled`, `buoyancy`,
+`amplitude` (0.5 блока), `wavelength` (32 блока), `speed` (4 блока/с), `direction` (35°),
+`shore_fade` (16 блоков). В клиентском файле остался только переключатель отображения.
+Если раньше профиль настраивался в waves-client, перенесите свои значения в waves-common.
+Сервер отправляет только небольшой пакет параметров раз в секунду; клиенты используют
+тот же профиль и мировое время, отдельной клиентской случайной фазы нет.
 
-A bounded 129×129 map at 4-block spacing is rebuilt incrementally (512 cells/tick),
-using only already loaded chunks. Water shallower than three blocks, small ponds,
-shorelines, different water levels and unloaded/map boundaries remain flat or fade out.
-The map covers 512×512 blocks around the player; waves smoothly flatten near its edge.
-No chunk rebuild is requested for animation.
+Deep Seas 3.4.7 кэширует внутренние незатопленные ячейки герметичных отсеков.
+На каждом физическом подшаге он считает их погружённую долю, суммарный вытесненный объём
+и взвешенный центр плавучести, затем прикладывает одну подъёмную силу в этом центре.
+AeroWorks добавляет локальную высоту волны к глубине перед штатным clamp(0,1).
+Поэтому нос и корма вытесняют разный объём, и штатный центр силы создаёт качку.
+Коэффициент подъёмной силы, базовая ватерлиния, затопление, сопротивление,
+угловое демпфирование и самовыравнивание Deep Seas сохранены.
+При нулевой амплитуде/отключённой физике исходная глубина возвращается без изменений.
 
-Deep Seas 3.4.7 keeps its fluid meshing and fragment depth discard between hull front/back
-depth buffers. The vertex displacement runs before that existing clipping.
-This avoids an independent water overlay bypassing sealed-compartment culling.
-The fallback mesher's occlusion cancellation also remains unchanged.
+Дополнительного прохода по ячейкам корпуса и дополнительных импульсов нет.
+Используются четыре преобразования позы, которые уже выполняет Deep Seas;
+внутри его существующего цикла добавляются только арифметика, интерполяция
+кэшированной береговой сетки и табличный синус с интерполяцией.
+Чтение блоков происходит на серверном тике, вне расчёта сил: максимум 256 новых
+выборок сетки на мир за тик (до пяти водных колонок на выборку), не более 128 тел
+и 32768 кэшированных выборок на мир. Незагруженные чанки не запрашиваются.
+Сетки обновляются при перемещении и периодически; после первого прогрева влияние
+плавно включается за секунду. При большой очереди подготовки временно остаётся
+штатная плоская плавучесть. Серверные поля ограничены областью возле корабля
+(максимум 512×512 блоков), а клиентское отображение — областью возле камеры.
+Береговые проверки и шаг сетки 4 блока общие; край области/незагруженная
+местность могут давать разное затухание вдали от наблюдателя.
 
-This stage is visual: buoyancy, swimming, underwater fog and water block logic still use
-the original water level. It does not modify Distant Horizons water or external Iris shader
-packs; these waves are disabled while a shader pack is active. Without Sodium the existing
-water renderer remains in use. Runtime visual verification in Minecraft is still needed.
+Штатная пиксельная маска Deep Seas восстанавливается на этапе итогового шейдера
+его собственным обработчиком; исходные буферы глубины Sable привязаны к корпусу.
+Проверки включают повёрнутые контуры и гребни/впадины волн на GPU.
+
+Физика волн относится к штатно плавучим герметичным кораблям Deep Seas.
+Плавание игрока, подводный туман, жидкостная симуляция и вода Distant Horizons
+сохраняют базовый уровень. При активном шейдерпаке Iris визуальные волны отключены,
+серверная плавучесть продолжает работать. Проверка динамики настоящего судна в игре
+остаётся необходимой; сильное штатное самовыравнивание Deep Seas может подавлять крен.

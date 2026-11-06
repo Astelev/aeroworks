@@ -25,6 +25,7 @@
     "failure.PropellerFailureMixin",
     "failure.SyncedFailureInvoker",
     "deepseas.DeepSeasWindManagerMixin",
-    "deepseas.DeepSeasSailWindMixin"
+    "deepseas.DeepSeasSailWindMixin",
+    "deepseas.DeepSeasWaveBuoyancyMixin"
   ]
 }

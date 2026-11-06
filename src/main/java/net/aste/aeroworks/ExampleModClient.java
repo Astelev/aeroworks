@@ -18,6 +18,8 @@ public class ExampleModClient {
         net.aste.aeroworks.compat.deepseas.DeepSeasWind.installClient((payload,context)->
                 net.aste.aeroworks.compat.deepseas.DeepSeasWind.receive(Minecraft.getInstance().level,payload));
         net.aste.aeroworks.network.WindVisualNetwork.setReceiver(net.aste.aeroworks.client.WindVisualEvents::receive);
+        net.aste.aeroworks.waves.WaveNetwork.installClient(payload->
+                net.aste.aeroworks.client.waves.WaveClientState.receive(Minecraft.getInstance().level,payload));
         container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT,
                 net.aste.aeroworks.client.WindVisualConfig.SPEC,"aste_aeroworks-wind-client.toml");
         modEventBus.addListener(net.aste.aeroworks.client.CloudFogPostProcess::registerReloadListener);

@@ -180,6 +180,15 @@ def testWaves=tasks.register('testWaves',JavaExec) {
 }
 tasks.named('check') { dependsOn testWaves }
 
+def testWavePhysics=tasks.register('testWavePhysics',JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='net.aste.aeroworks.WavePhysicsTest'
+    args configurations.deepSeas.singleFile.absolutePath
+    javaLauncher=javaToolchains.launcherFor { languageVersion=JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testWavePhysics }
+
 // This block of code expands all declared replace properties in the specified resource targets.
 // A missing property will result in an error. Properties are expanded using ${} Groovy notation.
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
