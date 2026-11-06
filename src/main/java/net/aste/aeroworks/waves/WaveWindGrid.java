@@ -19,7 +19,7 @@ public final class WaveWindGrid {
             if(Math.abs((long)x)>500000||Math.abs((long)z)>500000||!Float.isFinite(from)||!Float.isFinite(to)
                     ||from<0||to<0||from>1.5||to>1.5||!Double.isFinite(started))throw new IllegalArgumentException("Invalid sea wind cell");
         }
-        public double at(double seconds){return from+(to-from)*WaveMath.smooth((seconds-started)/2);}
+        public double at(double seconds){return (double)from+((double)to-from)*WaveMath.smooth((seconds-started)/2);}
         public long key(){return WaveWindGrid.key(x,z);}
     }
     public WaveWindGrid(int seed,Map<Long,Cell> cells) {

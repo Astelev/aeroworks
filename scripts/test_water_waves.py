@@ -197,6 +197,22 @@ render_mask(.47,math.pi/2,mask_enabled=False)
 render_mask(.47,-math.pi/2,empty=True)
 print('Original Deep Seas mask: rotated fractional hull edges, crest/trough, no mask/empty mask and units 7/8/9 verified with real Sodium water on GPU')
 
+# Native hull clipping also remains exact with the detailed wave path active on unit 6.
+wind_tex=U();gen_tex(1,C.byref(wind_tex));active_tex(0x84C6);bind_tex(0x0DE1,wind_tex)
+tex_param(0x0DE1,0x2801,0x2600);tex_param(0x0DE1,0x2800,0x2600)
+wind_data=(F*(11*11*4))()
+for i in range(11*11):wind_data[4*i],wind_data[4*i+1],wind_data[4*i+2],wind_data[4*i+3]=1,1,-10,1
+tex_image(0x0DE1,0,0x8814,11,11,0,0x1908,0x1406,wind_data)
+u1i(loc('aste_WaveWind'),6);u3f(loc('aste_WaveWindGrid'),0,0,0)
+u1f(loc('aste_WaveDetailed'),1);u4f(loc('aste_WaveDetail'),16,0,.65,0)
+active_tex(0x84C7);bind_tex(0x0DE1,tex)
+depth_field=(F*(129*129*4))()
+for i in range(129*129):depth_field[4*i],depth_field[4*i+1],depth_field[4*i+2]=63,1,32
+tex_image(0x0DE1,0,0x8814,129,129,0,0x1908,0x1406,depth_field)
+for degrees in [0,37,81]:
+    for phase in [math.pi/2,-math.pi/2]:assert render_mask(math.radians(degrees),phase)>50
+print('Detailed wave/wind path: original hull masking intact with independent texture units 6/7/8/9')
+
 # Exercise the detailed height function itself against CPU fixtures, so shore vertices,
 # air-cell buoyancy and solid-block buoyancy cannot quietly use different spectra.
 vertex='#version 330 core\n'+wave+'''
@@ -205,6 +221,7 @@ uniform float testDepth;
 out vec3 result;
 void main(){result=vec3(0,aste_waveHeight(testPosition.xz,testDepth),0);gl_Position=vec4(0,0,0,1);}
 '''
+names=(C.c_char_p*1)(b'result')
 program=create_program();attach(program,shader(0x8B31,vertex));feedback(program,1,names,0x8C8C);link(program)
 program_iv(program,0x8B82,C.byref(ok));program_log(program,len(log),None,log)
 assert ok.value,log.value.decode()
