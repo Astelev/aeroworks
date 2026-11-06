@@ -47,6 +47,20 @@ public final class WaveTest {
         check(node.methods.stream().anyMatch(m->m.name.equals(name)&&m.desc.equals(desc)),"Changed Sodium hook: "+name);
     }
     public static void main(String[] args)throws Exception {
+        for(String type:new String[]{"net/minecraft/world/level/chunk/ChunkAccess","net/minecraft/world/level/levelgen/Heightmap$Types"}) {
+            var node=new ClassNode();
+            try(var in=WaveTest.class.getClassLoader().getResourceAsStream(type+".class")) { new ClassReader(in.readAllBytes()).accept(node,0); }
+            for(var m:node.methods) if(m.name.equals("getHeight") || (type.endsWith("$Types") && m.name.equals("<clinit>"))) {
+                System.out.println("WAVE HEIGHT CONTRACT "+type+"."+m.name+m.desc);
+                for(var i:m.instructions) {
+                    if(i instanceof org.objectweb.asm.tree.MethodInsnNode c)System.out.println("call "+c.owner+"."+c.name+c.desc);
+                    if(i instanceof org.objectweb.asm.tree.LdcInsnNode c)System.out.println("constant "+c.cst);
+                    if(i instanceof org.objectweb.asm.tree.FieldInsnNode c)System.out.println("field "+c.owner+"."+c.name);
+                    if(i.getOpcode()>=2 && i.getOpcode()<=8)System.out.println("iconst "+(i.getOpcode()-3));
+                    if(i.getOpcode()==org.objectweb.asm.Opcodes.ISUB)System.out.println("isub");
+                }
+            }
+        }
         double p=WaveMath.phase(15,-8,3,32,4,.4);
         check(Math.abs(WaveMath.height(p,.5,0))<1e-10,"Dry shore moves");
         double shifted=WaveMath.phase(15+4*Math.cos(.4),-8+4*Math.sin(.4),4,32,4,.4);
