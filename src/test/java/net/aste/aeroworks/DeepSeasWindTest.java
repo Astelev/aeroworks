@@ -47,6 +47,18 @@ public final class DeepSeasWindTest {
         try{DeepSeasWindPayload.CODEC.encode(packet,maximum);check(packet.readableBytes()<40*1024,"Maximum weather/body snapshot remains bounded");check(maximum.equals(DeepSeasWindPayload.CODEC.decode(packet)),"Maximum snapshot roundtrip");}finally{packet.release();}
         check(WindWeatherGrid.coordinate(-.1)==-1&&WindWeatherGrid.coordinate(-128)==-1,"Negative world coordinates select correct cells");
         check(WindWeatherGrid.lookup(cells,123,-321)==blend,"Selection depends on world position, not body identity or sails");
+        var clear=new WindWeatherGrid.Cell(0,0,WindWeatherBlend.CLEAR);
+        var wet=new WindWeatherGrid.Cell(1,0,blend);var edge=Map.of(clear.key(),clear,wet.key(),wet);
+        var before=new ZonalWindModel.Result();var after=new ZonalWindModel.Result();
+        ZonalWindModel.sample(p.parameters(),123,4,127.999,80,64,WindWeatherGrid.lookup(edge,127.999,64,30),30,before);
+        ZonalWindModel.sample(p.parameters(),123,4,128.001,80,64,WindWeatherGrid.lookup(edge,128.001,64,30),30,after);
+        check(Math.hypot(before.x-after.x,before.z-after.z)<.001,"Weather cell boundaries remain continuous");
+        // A transition starting late in a world must use world time, never its normalized progress as a timestamp.
+        var late=new WindWeatherBlend(WindWeather.CLEAR,storm,1000,15);
+        var steady=new WindWeatherBlend(late.current(1015),late.current(1015),0,1);
+        ZonalWindModel.sample(p.parameters(),123,4,0,80,0,late,1015,before);
+        ZonalWindModel.sample(p.parameters(),123,4,0,80,0,steady,1015,after);
+        check(Math.hypot(before.x-after.x,before.z-after.z)<1e-10,"Cloud weather transitions use the real world timestamp");
         System.out.println("Deep Seas wind: units/heading/calm, bounded payload, server config and model parity passed");
     }
 }

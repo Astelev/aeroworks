@@ -34,7 +34,7 @@ public record DeepSeasWindPayload(ResourceLocation dimension, double time, boole
         if(!dynamic){out.set(fallbackX,0,fallbackZ);return;}
         var result=new ZonalWindModel.Result();
         double dt=Math.max(0,Math.min(2,elapsed));
-        ZonalWindModel.sample(parameters,seed,phase+dt*rate,x,y,z,WindWeatherGrid.lookup(weather,x,z),time+dt,result);
+        ZonalWindModel.sample(parameters,seed,phase+dt*rate,x,y,z,WindWeatherGrid.lookup(weather,x,z,time+dt),time+dt,result);
         out.set(result.x,0,result.z);
     }
     static boolean finite(double... values){for(double value:values)if(!Double.isFinite(value))return false;return true;}

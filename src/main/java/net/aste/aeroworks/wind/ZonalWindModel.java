@@ -7,13 +7,12 @@ public final class ZonalWindModel {
 
     public static void sample(WindParameters p, long seed, double phase, double x, double y, double z,
             WindWeatherBlend weather, double time, Result out) {
-        double t = weather.fraction(time);
-        double rain = weather.rain(t), storm = weather.storm(t);
+        double rain = weather.rain(time), storm = weather.storm(time);
         double surface = mix(mix(p.surfaceClear(), p.surfaceRain(), rain), p.surfaceStorm(), storm);
         double aloft = mix(mix(p.aloftClear(), p.aloftRain(), rain), p.aloftStorm(), storm);
         double gx = x / p.zoneSize(), gz = z / p.zoneSize();
-        double surfaceAngle = grid(seed, gx, gz, phase) * Math.PI * 2 + weather.surfaceTurn(t);
-        double upperAngle = weather.heading(t) + weather.aloftTurn(t)
+        double surfaceAngle = grid(seed, gx, gz, phase) * Math.PI * 2 + weather.surfaceTurn(time);
+        double upperAngle = weather.heading(time) + weather.aloftTurn(time)
                 + (grid(seed ^ 0xaabbcd133L, gx, gz, phase) * 2 - 1) * Math.toRadians(p.cloudDeviationDegrees()) * .5;
         double height = smooth((y - p.surfaceHeight()) / (p.maximumHeight() - p.surfaceHeight()));
         // Interpolate heading and magnitude separately; opposing layers do not cancel into calm air.

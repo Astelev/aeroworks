@@ -26,5 +26,26 @@ public final class WindWeatherGrid {
     public static WindWeatherBlend lookup(Map<Long,Cell> cells,double x,double z){
         var cell=cells.get(at(x,z));return cell==null?WindWeatherBlend.CLEAR:cell.weather();
     }
+    /** Blend neighbouring cell centres so crossing a cell edge cannot abruptly turn the wind. */
+    public static WindWeatherBlend lookup(Map<Long,Cell> cells,double x,double z,double time) {
+        var fallback=lookup(cells,x,z);
+        double gx=x/SIZE-.5,gz=z/SIZE-.5;int ix=(int)Math.floor(gx),iz=(int)Math.floor(gz);
+        var a=weather(cells,ix,iz,fallback);var b=weather(cells,ix+1,iz,fallback);
+        var c=weather(cells,ix,iz+1,fallback);var d=weather(cells,ix+1,iz+1,fallback);
+        if(a.equals(b)&&a.equals(c)&&a.equals(d))return a;
+        double fx=ZonalWindModel.smooth(gx-ix),fz=ZonalWindModel.smooth(gz-iz);
+        var state=mix(mix(a.current(time),b.current(time),fx),mix(c.current(time),d.current(time),fx),fz);
+        return new WindWeatherBlend(state,state,0,1);
+    }
+    private static WindWeatherBlend weather(Map<Long,Cell> cells,int x,int z,WindWeatherBlend fallback) {
+        var cell=cells.get(key(x,z));return cell==null?fallback:cell.weather();
+    }
+    private static WindWeather mix(WindWeather a,WindWeather b,double t) {
+        return new WindWeather(t<.5?a.cloudType():b.cloudType(),
+            a.rain()+(b.rain()-a.rain())*t,a.storm()+(b.storm()-a.storm())*t,
+            ZonalWindModel.angleMix(a.cloudHeading(),b.cloudHeading(),t),
+            ZonalWindModel.angleMix(a.surfaceTurn(),b.surfaceTurn(),t),
+            ZonalWindModel.angleMix(a.aloftTurn(),b.aloftTurn(),t));
+    }
     private WindWeatherGrid(){}
 }

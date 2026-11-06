@@ -81,7 +81,7 @@ public final class WindWorlds {
             double elapsed=Math.max(0,sample.timeSeconds()-snapshot.time());
             double phase = snapshot.phase()+elapsed*snapshot.rate();
             ZonalWindModel.sample(p, world.seed, phase, sample.x(), sample.y(), sample.z(),
-                    WindWeatherGrid.lookup(snapshot.weather(),sample.x(),sample.z()), sample.timeSeconds(), result);
+                    WindWeatherGrid.lookup(snapshot.weather(),sample.x(),sample.z(),sample.timeSeconds()), sample.timeSeconds(), result);
             if(body!=null) FlightWindEffects.apply(WindSettings.current().effects(),sample.timeSeconds(),
                     sample.x(),sample.y(),sample.z(),body.flows(),body.episode(),body.sails(),result);
         }
