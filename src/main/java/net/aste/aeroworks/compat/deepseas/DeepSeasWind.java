@@ -34,7 +34,7 @@ public final class DeepSeasWind {
     private static final class Cache {long tick=Long.MIN_VALUE;final Map<UUID,Vec3> bodies=new HashMap<>();}
     private DeepSeasWind(){}
     public static void register(RegisterPayloadHandlersEvent event){
-        event.registrar("1").playToClient(DeepSeasWindPayload.TYPE,DeepSeasWindPayload.CODEC,(v,c)->receiver.accept(v,c));
+        event.registrar("2").playToClient(DeepSeasWindPayload.TYPE,DeepSeasWindPayload.CODEC,(v,c)->receiver.accept(v,c));
     }
     public static void installClient(BiConsumer<DeepSeasWindPayload,net.neoforged.neoforge.network.handling.IPayloadContext> handler){receiver=handler;}
     public static void receive(Level level,DeepSeasWindPayload payload){
@@ -95,7 +95,7 @@ public final class DeepSeasWind {
             var nearby=new ArrayList<ServerSubLevel>();
             double range=Math.min(2048,level.getServer().getPlayerList().getViewDistance()*16+128);
             if(container!=null)for(var body:container.getAllSubLevels()){
-                if(body.isRemoved()||(body.getPlot().getLiftProviders().isEmpty()&&body.getPlot().getContraptions().isEmpty()))continue;
+                if(body.isRemoved())continue; // Wind vanes work on bodies without sails too.
                 var p=body.logicalPose().position();if((p.x()-pos.x)*(p.x()-pos.x)+(p.z()-pos.z)*(p.z()-pos.z)<=range*range)nearby.add(body);
             }
             nearby.sort(Comparator.comparingDouble(b->{var p=b.logicalPose().position();return (p.x()-pos.x)*(p.x()-pos.x)+(p.z()-pos.z)*(p.z()-pos.z);}));
@@ -103,10 +103,15 @@ public final class DeepSeasWind {
             for(int i=0;i<Math.min(nearby.size(),DeepSeasWindPayload.MAX_BODIES);i++){
                 var body=nearby.get(i);var v=bodyWind(level,body);bodies.add(new DeepSeasWindPayload.Body(body.getUniqueId(),v.x,v.z));
             }
+            var weather=new HashMap<Long,WindWeatherGrid.Cell>();
+            for(var cell:WindWorlds.weather(level)) {
+                double dx=WindWeatherGrid.center(cell.x())-pos.x,dz=WindWeatherGrid.center(cell.z())-pos.z;
+                if(dx*dx+dz*dz<=(range+WindWeatherGrid.SIZE)*(range+WindWeatherGrid.SIZE))weather.put(cell.key(),cell);
+            }
             var fallback=ambient(level,pos.x,pos.y,pos.z);
             PacketDistributor.sendToPlayer(player,new DeepSeasWindPayload(level.dimension().location(),level.getGameTime()/20.0,
                 settings.enabled(),settings.dynamic()&&WindFields.usesDefault(),clock.seed(),clock.phase(),clock.rate(),settings.field(),
-                Config.DEEP_SEAS_WIND_REFERENCE.get(),fallback.x,fallback.z,bodies));
+                Config.DEEP_SEAS_WIND_REFERENCE.get(),fallback.x,fallback.z,weather,bodies));
         }
     }
     @SubscribeEvent public static void unload(LevelEvent.Unload e){

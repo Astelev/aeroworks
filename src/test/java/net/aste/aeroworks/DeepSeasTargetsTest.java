@@ -39,6 +39,13 @@ public final class DeepSeasTargetsTest {
             var n=read(DeepSeasTargetsTest.class.getClassLoader().getResourceAsStream("net/aste/aeroworks/compat/deepseas/"+name+".class"));
             for(var m:n.methods)for(var i:m.instructions)if(i instanceof MethodInsnNode c&&(c.owner.startsWith("com/maxenonyme/")||c.owner.startsWith("net/minecraft/client/")))throw new AssertionError("Optional/side dependency leak: "+c.owner);
         }
+        var worlds=read(DeepSeasTargetsTest.class.getClassLoader().getResourceAsStream("net/aste/aeroworks/wind/WindWorlds.class"));
+        var sampler=worlds.methods.stream().filter(m->m.name.equals("sample")).findFirst().orElseThrow();
+        if(calls(sampler,"net/aste/aeroworks/wind/WindWeatherGrid","lookup")!=1)
+            throw new AssertionError("World wind must select coordinate-based weather for both body and ambient queries");
+        var prepare=worlds.methods.stream().filter(m->m.name.equals("prepareWeather")).findFirst().orElseThrow();
+        if(calls(prepare,"net/minecraft/server/level/ServerLevel","players")==0)
+            throw new AssertionError("Ambient weather must update even without any sail body");
         System.out.println("Deep Seas 3.4.7 SHA256, both wind entry points, world-space sail hook, client indicators and optional-side isolation verified");
     }
 }

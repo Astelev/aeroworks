@@ -30,10 +30,11 @@ public final class WindWorlds {
             this.x=x; this.y=y; this.z=z;
         }
     }
-    private record Snapshot(double time, double phase, double rate, Int2ObjectOpenHashMap<BodyWeather> bodies) {}
+    private record Snapshot(double time, double phase, double rate, Int2ObjectOpenHashMap<BodyWeather> bodies, Map<Long,WindWeatherGrid.Cell> weather) {}
     private static final class World {
         final long seed;
-        int cursor, visualCursor;
+        int cursor, visualCursor, weatherCursor;
+        final java.util.Map<Long,Double> weatherChecked=new java.util.HashMap<>();
         final MountainFlowCatalog terrain=new MountainFlowCatalog();
         final SimpleCloudsWind.Cache clouds=new SimpleCloudsWind.Cache();
         Int2ObjectOpenHashMap<Flight> flights=new Int2ObjectOpenHashMap<>();
@@ -41,7 +42,7 @@ public final class WindWorlds {
         World(ServerLevel level, WindParameters p) {
             seed = level.getSeed() ^ ZonalWindModel.typeKey(level.dimension().location().toString());
             double time = level.getGameTime() / 20.0;
-            snapshot = new Snapshot(time, time / p.fallbackPeriod(), 1 / p.fallbackPeriod(), new Int2ObjectOpenHashMap<>());
+            snapshot = new Snapshot(time, time / p.fallbackPeriod(), 1 / p.fallbackPeriod(), new Int2ObjectOpenHashMap<>(),Map.of());
         }
     }
     private WindWorlds() {}
@@ -54,6 +55,10 @@ public final class WindWorlds {
         var s=world.snapshot;return new Clock(world.seed,s.phase()+Math.max(0,now-s.time())*s.rate(),s.rate());
     }
 
+
+    public static java.util.Collection<WindWeatherGrid.Cell> weather(ServerLevel level) {
+        var world=WORLDS.get(level);return world==null?java.util.List.of():world.snapshot.weather().values();
+    }
 
     /** O(1) read of the same immutable episode snapshot that drives physics, without a weather/noise query. */
     public static boolean isTurbulent(ServerLevel level,int bodyId) {
@@ -76,7 +81,7 @@ public final class WindWorlds {
             double elapsed=Math.max(0,sample.timeSeconds()-snapshot.time());
             double phase = snapshot.phase()+elapsed*snapshot.rate();
             ZonalWindModel.sample(p, world.seed, phase, sample.x(), sample.y(), sample.z(),
-                    body == null ? WindWeatherBlend.CLEAR : body.weather(), sample.timeSeconds(), result);
+                    WindWeatherGrid.lookup(snapshot.weather(),sample.x(),sample.z()), sample.timeSeconds(), result);
             if(body!=null) FlightWindEffects.apply(WindSettings.current().effects(),sample.timeSeconds(),
                     sample.x(),sample.y(),sample.z(),body.flows(),body.episode(),body.sails(),result);
         }
@@ -109,11 +114,12 @@ public final class WindWorlds {
             // One shared clock keeps co-located aircraft in the same horizontal wind field.
             // Use the strongest SC thunder sampled in an active flight area, not vanilla global rain.
             double storm=0;
-            if(!rollback) for(var weather:old.bodies().values()) storm=Math.max(storm,weather.weather().storm(now));
+            if(!rollback) for(var cell:old.weather().values()) storm=Math.max(storm,cell.weather().storm(now));
             rate=FlightWindEffects.directionRate(1/SimpleCloudsWind.period(manager,p),storm,effects);
         }
         var container = SubLevelContainer.getContainer(level);
         if (container == null) return;
+        var weather=prepareWeather(level,world,old,now,p,rollback);
         var bodies = new Int2ObjectOpenHashMap<BodyWeather>();
         var flights=new Int2ObjectOpenHashMap<Flight>();
         world.terrain.begin(effects,now);
@@ -145,9 +151,9 @@ public final class WindWorlds {
                 }
                 var reading = SimpleCloudsWind.read(level, manager, pos.x(), pos.y(), pos.z(), world.seed, p,
                         world.clouds,now,effects.turbulenceEnabled() && sails>0);
-                var blend = previous == null ? WindWeatherBlend.CLEAR : previous.weather();
+                var blend = WindWeatherGrid.lookup(weather,pos.x(),pos.z());
                 var flows=sails==0 ? MountainFlowCatalog.EMPTY : world.terrain.nearby(level,world.seed,pos.x(),pos.z(),now,effects);
-                previous=new BodyWeather(now,blend.retarget(reading.weather(),now,p.transitionSeconds()),
+                previous=new BodyWeather(now,blend,
                         reading.exposure(),reading.minY(),reading.maxY(),sails,flows,null);
                 reads++;
                 next = (index + 1) % size;
@@ -156,16 +162,53 @@ public final class WindWorlds {
                 double exposure=pos.y()>=previous.minY() && pos.y()<=previous.maxY() && previous.sails()>0
                         ? previous.exposure():0;
                 if(previous.sails()==0) flight.tracker.reset();
-                else flight.tracker.advance(distance,body.latestLinearVelocity.length(),exposure,previous.weather().storm(now),now,effects);
-                bodies.put(id,new BodyWeather(previous.checked(),previous.weather(),previous.exposure(),previous.minY(),
+                else flight.tracker.advance(distance,body.latestLinearVelocity.length(),exposure,WindWeatherGrid.lookup(weather,pos.x(),pos.z()).storm(now),now,effects);
+                bodies.put(id,new BodyWeather(previous.checked(),WindWeatherGrid.lookup(weather,pos.x(),pos.z()),previous.exposure(),previous.minY(),
                         previous.maxY(),previous.sails(),previous.flows(),flight.tracker.snapshot()));
             }
         }
         world.cursor = next;
         world.flights=flights;
         // Never mutate a published map. Removed bodies disappear at the next tick.
-        world.snapshot = new Snapshot(now, phase, rate, bodies);
+        world.snapshot = new Snapshot(now, phase, rate, bodies,weather);
         if(level.getGameTime()%5==0) publishVisuals(level,world,now,effects,bodies);
+    }
+    /** Bounded, density-free weather sampling on the server tick, including places with no sails. */
+    private static Map<Long,WindWeatherGrid.Cell> prepareWeather(ServerLevel level,World world,Snapshot old,double now,
+            WindParameters p,boolean rollback) {
+        var needed=new java.util.LinkedHashSet<Long>();
+        for(var player:level.players()) {
+            var pos=dev.ryanhcode.sable.Sable.HELPER.projectOutOfSubLevel(level,player.position());
+            int cx=WindWeatherGrid.coordinate(pos.x),cz=WindWeatherGrid.coordinate(pos.z);
+            // The occupied cell comes first, then its eight neighbours.
+            addWeatherCell(needed,cx,cz);
+            for(int z=-1;z<=1;z++)for(int x=-1;x<=1;x++)addWeatherCell(needed,cx+x,cz+z);
+        }
+        var container=SubLevelContainer.getContainer(level);
+        if(container!=null)for(var body:container.getAllSubLevels()) {
+            if(body.isRemoved())continue;var pos=body.logicalPose().position();
+            addWeatherCell(needed,WindWeatherGrid.coordinate(pos.x()),WindWeatherGrid.coordinate(pos.z()));
+        }
+        var result=new java.util.HashMap<Long,WindWeatherGrid.Cell>();
+        if(!rollback)for(long key:needed){var cell=old.weather().get(key);if(cell!=null)result.put(key,cell);}
+        if(rollback)world.weatherChecked.clear();else world.weatherChecked.keySet().retainAll(needed);
+        var keys=new java.util.ArrayList<>(needed);int size=keys.size(),reads=0;
+        int start=size==0?0:Math.floorMod(world.weatherCursor,size);
+        for(int offset=0;offset<size;offset++) {
+            int index=(start+offset)%size;long key=keys.get(index);
+            double checked=world.weatherChecked.getOrDefault(key,Double.NEGATIVE_INFINITY);
+            if(reads>=MAX_WEATHER_READS_PER_TICK||now-checked<1)continue;
+            int x=WindWeatherGrid.x(key),z=WindWeatherGrid.z(key);
+            var reading=SimpleCloudsWind.read(level,CloudManager.get(level),WindWeatherGrid.center(x),0,WindWeatherGrid.center(z),
+                    world.seed,p,world.clouds,now,false);
+            var cell=result.get(key);var blend=cell==null?WindWeatherBlend.CLEAR:cell.weather();
+            result.put(key,new WindWeatherGrid.Cell(x,z,blend.retarget(reading.weather(),now,p.transitionSeconds())));
+            world.weatherChecked.put(key,now);world.weatherCursor=index+1;reads++;
+        }
+        return Map.copyOf(result);
+    }
+    private static void addWeatherCell(java.util.Set<Long> cells,int x,int z) {
+        if(cells.size()<WindWeatherGrid.MAX_CELLS)cells.add(WindWeatherGrid.key(x,z));
     }
     private static void publishVisuals(ServerLevel level,World world,double now,WindEffectsParameters p,
             Int2ObjectOpenHashMap<BodyWeather> bodies) {
