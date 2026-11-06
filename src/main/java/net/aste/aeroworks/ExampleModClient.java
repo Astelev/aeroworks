@@ -18,11 +18,17 @@ public class ExampleModClient {
         net.aste.aeroworks.compat.deepseas.DeepSeasWind.installClient((payload,context)->
                 net.aste.aeroworks.compat.deepseas.DeepSeasWind.receive(Minecraft.getInstance().level,payload));
         net.aste.aeroworks.network.WindVisualNetwork.setReceiver(net.aste.aeroworks.client.WindVisualEvents::receive);
+        net.aste.aeroworks.waves.WaveNetwork.installClient(payload->
+                net.aste.aeroworks.client.waves.WaveClientState.receive(Minecraft.getInstance().level,payload));
         container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT,
                 net.aste.aeroworks.client.WindVisualConfig.SPEC,"aste_aeroworks-wind-client.toml");
         modEventBus.addListener(net.aste.aeroworks.client.CloudFogPostProcess::registerReloadListener);
         container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT,
+                net.aste.aeroworks.client.waves.WaveConfig.SPEC,"aste_aeroworks-waves-client.toml");
+        container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT,
                 net.aste.aeroworks.client.CloudFogConfig.SPEC);
+        container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT,
+                net.aste.aeroworks.client.rain.RainConfig.SPEC,"aste_aeroworks-rain-client.toml");
         // Allows NeoForge to create a config screen for this mod's configs.
         // The config screen is accessed by going to the Mods screen > clicking on your mod > clicking on config.
         // Do not forget to add translations for your config options to the en_us.json file.

@@ -10,7 +10,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.config.ModConfigEvent;
 
 public final class FailureSettings {
@@ -25,7 +24,7 @@ public final class FailureSettings {
     public static void loading(ModConfigEvent.Loading event) {reload(event);}
     public static void reloading(ModConfigEvent.Reloading event) {reload(event);}
     private static void reload(ModConfigEvent event) {
-        if(!event.getConfig().getModId().equals(Aeroworks.MODID)||event.getConfig().getType()!=ModConfig.Type.COMMON)return;
+        if (event.getConfig().getSpec() != Config.SPEC) return;
         FailureRisk risk;
         try {
             risk=new FailureRisk(Config.FAILURE_CHANCE.get(),Config.FAILURE_REFERENCE_RPM.get(),Config.FAILURE_RPM_WEIGHT.get(),
