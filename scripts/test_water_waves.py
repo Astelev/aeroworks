@@ -116,3 +116,83 @@ out=(F*4)(); get_buffer(0x8C8E,0,16,out)
 assert error()==0
 near(out[1],(y*32/(1<<20)-8)+48+.5)
 print('Full Sodium compressed water vertex + region translation displaced by configured amplitude on GPU')
+
+# Rasterize real Sodium water with Deep Seas' original fragment patch. Its own
+# near/far textures describe a rotated hull mask; no block faces are removed.
+native_mask=Path('build/wave-test/hull-fragment.fsh').read_text()
+program=create_program(); attach(program,shader(0x8B31,source)); attach(program,shader(0x8B30,native_mask))
+for index,name in enumerate(['a_Position','a_Color','a_TexCoord','a_LightAndData']):
+    bind_attribute(program,index,name.encode())
+link(program); program_iv(program,0x8B82,C.byref(ok)); program_log(program,len(log),None,log)
+assert ok.value,log.value.decode()
+use(program)
+for name in ['SableWaterOcclusionEnabled','SableCloseSampler','SableFarSampler','aste_WaveShore']:
+    assert loc(name)>=0, f'Native wave/mask uniform inactive: {name}'
+# Original Deep Seas uses 8/9; AeroWorks' shore map stays on 7.
+u1i(loc('SableCloseSampler'),8); u1i(loc('SableFarSampler'),9)
+u1i(loc('aste_WaveShore'),7); active_tex(0x84C7); bind_tex(0x0DE1,tex)
+u1i(loc('u_LightTex'),1); u1i(loc('u_BlockTex'),2); active_tex(0x84C2); bind_tex(0x0DE1,light)
+u1f(loc('aste_WaveEnabled'),1); u3f(loc('aste_WaveGrid'),0,0,0)
+for name in ['aste_WaveStill','aste_WaveFlow','aste_WaveOverlay']: u4f(loc(name),.1,.1,.2,.2)
+u3f(loc('u_RegionOffset'),248,48,248)
+u1f(loc('u_FogStart'),4000); u1f(loc('u_FogEnd'),5000)
+umat(loc('u_ModelViewMatrix'),1,0,identity)
+projection=(F*16)(1/16,0,0,0, 0,0,.2,0, 0,1/16,0,0, -16,-16,-(48+y*32/(1<<20)-8)*.2,1)
+umat(loc('u_ProjectionMatrix'),1,0,projection)
+vao2=U(); gen_vao(1,C.byref(vao2)); bind_vao(vao2)
+positions=[]
+for vx,vz in [(-8,-8),(23.99997,-8),(23.99997,23.99997),(-8,-8),(23.99997,23.99997),(-8,23.99997)]:
+    qx,qz=q(vx),q(vz)
+    positions += [(qx>>10)|((y>>10)<<10)|((qz>>10)<<20),(qx&1023)|((y&1023)<<10)|((qz&1023)<<20)]
+vbo=U(); gen_buffers(1,C.byref(vbo)); bind_buffer(0x8892,vbo)
+buffer_data(0x8892,len(positions)*4,(U*len(positions))(*positions),0x88E4)
+enable_attr=bind(gl,'glEnableVertexAttribArray',None,U)
+attr_pointer=bind(gl,'glVertexAttribIPointer',None,U,I,U,I,P)
+enable_attr(0); attr_pointer(0,2,0x1405,0,None)
+attr_color=bind(gl,'glVertexAttrib4f',None,U,F,F,F,F); attr_color(1,1,1,1,1)
+attr2(2,round(.15*32768)+1,round(.15*32768)+1); attr4(3,128,128,0,0)
+disable=bind(gl,'glDisable',None,U)
+for flag in [0x8C89,0x0B44,0x0B71,0x0BE2]: disable(flag)
+size=64
+out_tex=U(); gen_tex(1,C.byref(out_tex)); active_tex(0x84C3); bind_tex(0x0DE1,out_tex)
+tex_image(0x0DE1,0,0x8814,size,size,0,0x1908,0x1406,None)
+fbo=U(); gen_fbo(1,C.byref(fbo)); bind_fbo(0x8D40,fbo)
+fbo_tex(0x8D40,0x8CE0,0x0DE1,out_tex,0); assert check_fbo(0x8D40)==0x8CD5
+viewport(0,0,size,size)
+close_tex,far_tex=U(),U(); gen_tex(1,C.byref(close_tex)); gen_tex(1,C.byref(far_tex))
+clear_color=bind(gl,'glClearColor',None,F,F,F,F); clear=bind(gl,'glClear',None,U)
+clear_color(0,0,0,0)
+
+def render_mask(angle,phase,mask_enabled=True,empty=False):
+    c,s=math.cos(angle),math.sin(angle)
+    front,back=(F*(size*size))(),(F*(size*size))()
+    expected=[]
+    for iz in range(size):
+        for ix in range(size):
+            px,pz=(ix+.5)*2/size-1,(iz+.5)*2/size-1
+            # A fractional, rotated compartment, deliberately not aligned to block/pixel edges.
+            rx,rz=c*(px-.137)+s*(pz+.191),-s*(px-.137)+c*(pz+.191)
+            inside=abs(rx)<.43 and abs(rz)<.183 and not empty
+            i=iz*size+ix
+            front[i]=.32+.05*px if inside else 1
+            back[i]=.68+.05*pz if inside else 1
+            expected.append(0 if inside and mask_enabled else 1)
+    for unit,texture_id,pixels in [(8,close_tex,front),(9,far_tex,back)]:
+        active_tex(0x84C0+unit); bind_tex(0x0DE1,texture_id)
+        tex_param(0x0DE1,0x2801,0x2600); tex_param(0x0DE1,0x2800,0x2600)
+        tex_image(0x0DE1,0,0x822E,size,size,0,0x1903,0x1406,pixels)
+    u1f(loc('SableWaterOcclusionEnabled'),1 if mask_enabled else 0)
+    u4f(loc('aste_WaveProfile'),0,0,phase,.5)
+    clear(0x4000); draw(4,0,6)
+    pixels=(F*(size*size*4))(); read(0,0,size,size,0x1908,0x1406,pixels)
+    assert error()==0
+    for i,wanted in enumerate(expected):
+        assert abs(pixels[4*i+3]-wanted)<1e-4,(angle,phase,i,pixels[4*i+3],wanted)
+    return sum(1 for p in expected if p==0)
+
+for degrees in [0,37,81]:
+    for phase in [0,math.pi/2,-math.pi/2]:
+        assert render_mask(math.radians(degrees),phase)>50
+render_mask(.47,math.pi/2,mask_enabled=False)
+render_mask(.47,-math.pi/2,empty=True)
+print('Original Deep Seas mask: rotated fractional hull edges, crest/trough, no mask/empty mask and units 7/8/9 verified with real Sodium water on GPU')

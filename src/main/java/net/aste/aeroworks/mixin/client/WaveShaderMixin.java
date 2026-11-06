@@ -1,6 +1,7 @@
 package net.aste.aeroworks.mixin.client;
 
 import net.aste.aeroworks.client.waves.WaveShader;
+import net.aste.aeroworks.client.waves.DeepSeasWaterMask;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
@@ -15,6 +16,6 @@ public abstract class WaveShaderMixin {
             "Lnet/caffeinemc/mods/sodium/client/gl/shader/ShaderWorkarounds;safeShaderSource(ILjava/lang/CharSequence;)V"),
             index=1, require=1)
     private static CharSequence aste_aeroworks$waveShader(CharSequence source) {
-        return WaveShader.compiledSource(source.toString());
+        return DeepSeasWaterMask.compiledSource(WaveShader.compiledSource(source.toString()));
     }
 }

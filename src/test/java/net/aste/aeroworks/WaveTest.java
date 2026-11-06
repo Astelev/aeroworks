@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.jar.JarFile;
 import java.util.regex.Pattern;
 import net.aste.aeroworks.client.waves.WaveShader;
+import net.aste.aeroworks.client.waves.DeepSeasWaterMask;
 import net.aste.aeroworks.waves.ShoreField;
 import net.aste.aeroworks.waves.WaveMath;
 import org.objectweb.asm.ClassReader;
@@ -112,6 +113,11 @@ public final class WaveTest {
             String hullFragment=com.maxenonyme.createsubmarine.submarine.compat.sodium.WaterOcclusionPatch.apply(fragment,false);
             check(hullFragment.contains("SableCloseSampler") && hullFragment.contains("discard"),"Deep Seas hull clipping not inserted");
             check(WaveShader.compiledSource(hullFragment).equals(hullFragment),"Deep Seas hull fragment source changed");
+            var mask=new DeepSeasWaterMask.NativeMask(true);
+            check(mask.patch(fragment).equals(hullFragment),"Restoration differs from Deep Seas' original algorithm");
+            check(mask.patch(hullFragment).equals(hullFragment),"Original mask injected twice");
+            check(new DeepSeasWaterMask.NativeMask(false).patch(fragment).equals(fragment),"Optional mod absence changed fragment");
+            check(mask.patch(vertex).equals(vertex),"Hull restoration changed vertex source");
             check(WaveShader.compiledSource("#version 330\nvoid main(){gl_Position=vec4(0);}")
                     .equals("#version 330\nvoid main(){gl_Position=vec4(0);}"),"Unrelated vertex shader changed");
             Files.createDirectories(Path.of("build/wave-test"));
@@ -129,8 +135,18 @@ public final class WaveTest {
             String veilPatched=WaveShader.compiledSource(veil);
             check(!veilPatched.equals(veil),"Actual Veil-formatted terrain shader was not patched");
             Files.writeString(Path.of("build/wave-test/terrain-veil.vsh"),veilPatched);
+            String finalFragment=veilFormat(expand(jar,fragment).replace("#version 330 core",
+                    "#version 330 core\n#define USE_FOG\n#define MAX_TEXTURE_LOD_BIAS 16"),Path.of(args[2]));
+            String restoredMask=mask.patch(finalFragment);
+            check(restoredMask.contains("SableCloseSampler") && restoredMask.contains("gl_FragCoord.z"),"Final mask missing");
+            Files.writeString(Path.of("build/wave-test/hull-fragment.fsh"),restoredMask);
         }
         try(var jar=new JarFile(args[1])) {
+            String base="com/maxenonyme/createsubmarine/submarine/compat/sodium/";
+            var bridge=new ClassNode();
+            try(var in=jar.getInputStream(jar.getJarEntry(base+"SodiumWaterOcclusionBridge.class"))) { new ClassReader(in.readAllBytes()).accept(bridge,0); }
+            check(bridge.methods.stream().anyMatch(m->m.name.equals("applyToProgram")&&m.desc.equals("(IZ)V")),"Original mask binding contract changed");
+            check(bridge.fields.stream().anyMatch(f->f.name.equals("PIXEL_PERFECT_ACTIVE")&&f.desc.equals("Z")),"Original mask activation contract changed");
             // Hull clipping still uses displaced gl_FragCoord.z, not the old flat surface depth.
             var entry=jar.getJarEntry("com/maxenonyme/createsubmarine/submarine/compat/sodium/WaterOcclusionPatch.class");
             String constants=new String(jar.getInputStream(entry).readAllBytes(),java.nio.charset.StandardCharsets.ISO_8859_1);

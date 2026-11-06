@@ -57,6 +57,7 @@ public final class WaveRenderer {
         event.getLeft().add("  compile="+WaveShader.compileHookSeen+", shader="+WaveShader.attached+", renderer="+rendererSeen+", uniform="+uniformSeen
                 +", water="+wetCells+", waves="+waveCells+", fields="+fieldCount);
         event.getLeft().add("  excluded: unloaded/water/source/solid/shallow="+Arrays.toString(completedScan));
+        event.getLeft().add("Deep Seas hull mask: "+DeepSeasWaterMask.status());
     }
 
     private static String status() {
