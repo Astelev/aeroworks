@@ -99,6 +99,17 @@ public final class WaveTest {
                 if(i instanceof org.objectweb.asm.tree.MethodInsnNode c
                         && c.owner.equals("net/caffeinemc/mods/sodium/client/gl/shader/ShaderWorkarounds")
                         && c.name.equals("safeShaderSource") && c.desc.equals("(ILjava/lang/String;)V")) uploads++;
+            if(uploads!=1) for(String className:new String[]{"gl/shader/GlShader","gl/shader/ShaderLoader","render/chunk/ShaderChunkRenderer"}) {
+                var debug=new ClassNode();
+                try(var in=jar.getInputStream(jar.getJarEntry("net/caffeinemc/mods/sodium/client/"+className+".class"))) { new ClassReader(in.readAllBytes()).accept(debug,0); }
+                for(var m:debug.methods) {
+                    System.out.println("SODIUM CONTRACT "+className+"."+m.name+m.desc);
+                    for(var i:m.instructions) {
+                        if(i instanceof org.objectweb.asm.tree.MethodInsnNode c) System.out.println("CALL "+c.owner+"."+c.name+c.desc);
+                        if(i instanceof org.objectweb.asm.tree.LdcInsnNode c && c.cst instanceof String) System.out.println("STRING "+c.cst);
+                    }
+                }
+            }
             check(uploads==1,"Final-source upload hook changed: "+uploads);
             String pass="(Lnet/caffeinemc/mods/sodium/client/render/chunk/terrain/TerrainRenderPass;)V";
             target(jar,"render/chunk/ShaderChunkRenderer","begin",pass);
