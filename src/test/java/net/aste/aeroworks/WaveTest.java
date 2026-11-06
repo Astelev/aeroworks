@@ -47,27 +47,13 @@ public final class WaveTest {
         check(node.methods.stream().anyMatch(m->m.name.equals(name)&&m.desc.equals(desc)),"Changed Sodium hook: "+name);
     }
     public static void main(String[] args)throws Exception {
-        for(String type:new String[]{"net/minecraft/world/level/chunk/ChunkAccess","net/minecraft/world/level/levelgen/Heightmap$Types"}) {
-            var node=new ClassNode();
-            try(var in=WaveTest.class.getClassLoader().getResourceAsStream(type+".class")) { new ClassReader(in.readAllBytes()).accept(node,0); }
-            for(var m:node.methods) if(m.name.equals("getHeight") || (type.endsWith("$Types") && m.name.equals("<clinit>"))) {
-                System.out.println("WAVE HEIGHT CONTRACT "+type+"."+m.name+m.desc);
-                for(var i:m.instructions) {
-                    if(i instanceof org.objectweb.asm.tree.MethodInsnNode c)System.out.println("call "+c.owner+"."+c.name+c.desc);
-                    if(i instanceof org.objectweb.asm.tree.LdcInsnNode c)System.out.println("constant "+c.cst);
-                    if(i instanceof org.objectweb.asm.tree.FieldInsnNode c)System.out.println("field "+c.owner+"."+c.name);
-                    if(i.getOpcode()>=2 && i.getOpcode()<=8)System.out.println("iconst "+(i.getOpcode()-3));
-                    if(i.getOpcode()==org.objectweb.asm.Opcodes.ISUB)System.out.println("isub");
-                }
-            }
-        }
         double p=WaveMath.phase(15,-8,3,32,4,.4);
         check(Math.abs(WaveMath.height(p,.5,0))<1e-10,"Dry shore moves");
         double shifted=WaveMath.phase(15+4*Math.cos(.4),-8+4*Math.sin(.4),4,32,4,.4);
         check(Math.abs(Math.sin(p)-Math.sin(shifted))<1e-10,"Wave does not travel with configured speed");
         for(int x=-500;x<500;x++) check(Math.abs(WaveMath.height(WaveMath.phase(x,0,7,32,4,.4),.5,.7))<=.35000001,"Amplitude exceeded");
         int size=41;
-        float[] h=new float[size*size]; Arrays.fill(h,63.88789f);
+        float[] h=new float[size*size]; Arrays.fill(h,63f);
         float[] field=ShoreField.build(h,size,4,16);
         check(field[(20*size+20)*2+1]==1,"Open water has no waves");
         check(field[(1*size+20)*2+1]==0,"Map/shore margin moves");
@@ -75,11 +61,11 @@ public final class WaveTest {
         field=ShoreField.build(h,size,4,16);
         check(field[(20*size+20)*2+1]==0 && field[(20*size+21)*2+1]==0,"Island shore moves");
         Arrays.fill(h,ShoreField.DRY);
-        for(int z=18;z<=22;z++) for(int x=18;x<=22;x++) h[z*size+x]=63.88789f;
+        for(int z=18;z<=22;z++) for(int x=18;x<=22;x++) h[z*size+x]=63f;
         field=ShoreField.build(h,size,4,16);
         check(field[(20*size+20)*2+1]==0,"Small pond moves");
-        Arrays.fill(h,63.88789f);
-        for(int z=0;z<size;z++) for(int x=21;x<size;x++) h[z*size+x]=70.88789f;
+        Arrays.fill(h,63f);
+        for(int z=0;z<size;z++) for(int x=21;x<size;x++) h[z*size+x]=70f;
         field=ShoreField.build(h,size,4,16);
         check(field[(20*size+20)*2+1]==0,"Different water levels blend together");
         try(var jar=sodium(Path.of(args[0]))) {

@@ -35,7 +35,7 @@ u2f(loc('testUV'),.15,.15)
 height=10+8/9-.001
 pixels=(F*(129*129*2))()
 def field(weight):
-    for i in range(129*129): pixels[2*i],pixels[2*i+1]=height,weight
+    for i in range(129*129): pixels[2*i],pixels[2*i+1]=10,weight
     tex_image(0x0DE1,0,0x8230,129,129,0,0x8227,0x1406,pixels)
 field(1)
 gen_buffers=bind(gl,'glGenBuffers',None,I,C.POINTER(U))
@@ -64,7 +64,51 @@ near(sample(phase=0)[1],height)
 near(sample(x=0,phase=math.pi/2)[1],height)
 near(sample(x=-1,phase=math.pi/2)[1],height)
 near(sample(y=height-1,phase=math.pi/2)[1],height-1)
+near(sample(y=11,phase=math.pi/2)[1],11.5)
+near(sample(y=10,phase=math.pi/2)[1],10)
+near(sample(y=10.5,phase=math.pi/2)[1],10.5)
+u2f(loc('testUV'),.1,.1); near(sample(phase=math.pi/2)[1],height+.5)
 u2f(loc('testUV'),.8,.8); near(sample(phase=math.pi/2)[1],height)
 u2f(loc('testUV'),.15,.15); field(0); near(sample(phase=math.pi/2)[1],height)
 field(1); u1f(loc('aste_WaveEnabled'),0); near(sample(phase=math.pi/2)[1],height)
 print('Actual Sodium GLSL compiled; crest, trough, zero crossing, shore, map edge, other heights/materials and disable verified on GPU')
+
+# Exercise the FULL patched Sodium vertex shader (including its compressed vertex
+# decoder and region translation), rather than only compiling it and testing a stub.
+full=create_program(); attach(full,shader(0x8B31,source))
+bind_attribute=bind(gl,'glBindAttribLocation',None,U,U,C.c_char_p)
+for index,name in enumerate(['a_Position','a_Color','a_TexCoord','a_LightAndData']):
+    bind_attribute(full,index,name.encode())
+names=(C.c_char_p*1)(b'gl_Position'); feedback(full,1,names,0x8C8C); link(full)
+program_iv(full,0x8B82,C.byref(ok)); program_log(full,len(log),None,log)
+assert ok.value,log.value.decode()
+program=full; use(full)
+identity=(F*16)(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1)
+for name in ['u_ProjectionMatrix','u_ModelViewMatrix']: umat(loc(name),1,0,identity)
+u3f(loc('u_RegionOffset'),256,48,256)
+u3f(loc('aste_WaveGrid'),0,0,0)
+u1f(loc('aste_WaveEnabled'),1); u1i(loc('aste_WaveShore'),0)
+for name in ['aste_WaveStill','aste_WaveFlow','aste_WaveOverlay']: u4f(loc(name),.1,.1,.2,.2)
+u4f(loc('aste_WaveProfile'),0,0,math.pi/2,.5)
+# Ensure the terrain light sampler has a texture, separate from the shore map.
+light=U(); gen_tex(1,C.byref(light)); active_tex(0x84C1); bind_tex(0x0DE1,light)
+tex_param(0x0DE1,0x2801,0x2600); tex_param(0x0DE1,0x2800,0x2600)
+tex_image(0x0DE1,0,0x8814,1,1,0,0x1908,0x1406,(F*4)(1,1,1,1))
+u1i(loc('u_LightTex'),1); active_tex(0x84C0)
+def q(v): return int((8+v)/32*(1<<20))&0xFFFFF
+x,y,z=q(0),q(15+8/9-.001),q(0)
+hi=(x>>10)|((y>>10)<<10)|((z>>10)<<20)
+lo=(x&1023)|((y&1023)<<10)|((z&1023)<<20)
+attr2=bind(gl,'glVertexAttribI2ui',None,U,U,U)
+attr4=bind(gl,'glVertexAttribI4ui',None,U,U,U,U,U)
+attr2(0,hi,lo); attr2(2,round(.15*32768)+1,round(.15*32768)+1)
+attr4(3,128,128,0,0)
+# Same top surface as a real sea-level source block.
+for i in range(129*129): pixels[2*i],pixels[2*i+1]=63,1
+tex_image(0x0DE1,0,0x8230,129,129,0,0x8227,0x1406,pixels)
+buffer_data(0x8C8E,16,None,0x88E9)
+begin_tf(0); draw(0,0,1); end_tf()
+out=(F*4)(); get_buffer(0x8C8E,0,16,out)
+assert error()==0
+near(out[1],(y*32/(1<<20)-8)+48+.5)
+print('Full Sodium compressed water vertex + region translation displaced by configured amplitude on GPU')

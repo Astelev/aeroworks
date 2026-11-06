@@ -21,6 +21,7 @@ import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.ViewportEvent;
+import net.neoforged.neoforge.client.event.CustomizeGuiOverlayEvent;
 import org.lwjgl.opengl.GL33C;
 
 /** Native Sodium water vertices, with Deep Seas' original fragment clipping intact. */
@@ -39,6 +40,11 @@ public final class WaveRenderer {
     private static Object iris;
     private static Method irisActive;
     private static boolean irisChecked, irisWarned;
+    private static boolean rendererSeen, uniformSeen, displacementEnabled;
+    private static int wetCells, waveCells, fieldCount;
+    private static long ticks, lastReport;
+    private static String lastStatus="";
+    private static final int[] scan=new int[5], completedScan=new int[5];
     private record Binding(int texture, int sampler) {}
     private WaveRenderer() {}
 
@@ -46,10 +52,42 @@ public final class WaveRenderer {
     public static void camera(ViewportEvent.ComputeCameraAngles event) { partial=(float)event.getPartialTick(); }
 
     @SubscribeEvent
+    public static void debug(CustomizeGuiOverlayEvent.DebugText event) {
+        event.getLeft().add("AeroWorks waves: "+status());
+        event.getLeft().add("  shader="+WaveShader.attached+", renderer="+rendererSeen+", uniform="+uniformSeen
+                +", water="+wetCells+", waves="+waveCells+", fields="+fieldCount);
+        event.getLeft().add("  excluded: unloaded/water/source/solid/shallow="+Arrays.toString(completedScan));
+    }
+
+    private static String status() {
+        if(!WaveConfig.ENABLED.get()) return "disabled in config";
+        if(!ModList.get().isLoaded("sodium")) return "Sodium absent";
+        if(shaderPack()) return "Iris shader pack active";
+        if(!WaveShader.attached) return "terrain shader hook not called";
+        if(!rendererSeen) return "terrain renderer hook not called";
+        if(!uniformSeen) return "wave uniform absent from terrain program";
+        if(!ready && !upload) return "building water field "+cursor+"/"+(SIZE*SIZE);
+        if(wetCells==0) return "no eligible surface water in loaded chunks";
+        if(waveCells==0) return "water found, shore/shallow/unloaded boundary suppressed waves";
+        if(WaveConfig.AMPLITUDE.get()==0) return "amplitude is zero";
+        return displacementEnabled ? "active" : "field ready, waiting for terrain draw";
+    }
+
+    @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
         var mc=Minecraft.getInstance();
         if(level!=mc.level) {
             level=mc.level; heights=pending=null; ready=upload=false; nextRefresh=0;
+            wetCells=waveCells=fieldCount=0; ticks=lastReport=0; lastStatus=""; displacementEnabled=false;
+        }
+        if(level!=null && !mc.isPaused() && ++ticks-lastReport>=100) {
+            lastReport=ticks;
+            String report=status();
+            if(!report.equals(lastStatus)) {
+                lastStatus=report;
+                Aeroworks.LOGGER.info("AeroWorks waves: {}; shader={}, renderer={}, uniform={}, water={}, waves={}, fields={}, excluded(unloaded/water/source/solid/shallow)={}",
+                        report,WaveShader.attached,rendererSeen,uniformSeen,wetCells,waveCells,fieldCount,Arrays.toString(completedScan));
+            }
         }
         if(level==null || mc.player==null || mc.isPaused() || !WaveConfig.ENABLED.get()
                 || !ModList.get().isLoaded("sodium") || shaderPack()) return;
@@ -58,6 +96,7 @@ public final class WaveRenderer {
             buildX=Math.floorDiv(mc.player.getBlockX(),32)*32-(SIZE-1)*STEP/2;
             buildZ=Math.floorDiv(mc.player.getBlockZ(),32)*32-(SIZE-1)*STEP/2;
             heights=new float[SIZE*SIZE];
+            Arrays.fill(scan,0);
             Arrays.fill(heights,ShoreField.DRY); cursor=0;
         }
         for(int budget=0; budget<BUDGET && cursor<heights.length;budget++,cursor++) {
@@ -70,6 +109,12 @@ public final class WaveRenderer {
         }
         if(cursor==heights.length) {
             pending=ShoreField.build(heights,SIZE,STEP,WaveConfig.SHORE_FADE.get().floatValue());
+            wetCells=waveCells=0; fieldCount++;
+            System.arraycopy(scan,0,completedScan,0,scan.length);
+            for(int i=0;i<heights.length;i++) {
+                if(heights[i]!=ShoreField.DRY) wetCells++;
+                if(pending[i*2+1]>.001f) waveCells++;
+            }
             nextX=buildX; nextZ=buildZ; upload=true; heights=null;
             nextRefresh=level.getGameTime()+8;
         }
@@ -78,19 +123,21 @@ public final class WaveRenderer {
     private static float column(int x,int z) {
         // Never request a chunk or wait for terrain generation.
         var chunk=level.getChunkSource().getChunk(x>>4,z>>4,ChunkStatus.FULL,false);
-        if(chunk==null) return ShoreField.DRY;
+        if(chunk==null) { scan[0]++; return ShoreField.DRY; }
         int y=chunk.getHeight(Heightmap.Types.WORLD_SURFACE,x&15,z&15);
         if(y<level.getMinBuildHeight()+2) return ShoreField.DRY;
         var state=chunk.getBlockState(POS.set(x,y,z));
         if(!state.isAir() && !state.getFluidState().isEmpty()) {
             var fluid=state.getFluidState();
-            if(!fluid.is(FluidTags.WATER) || !fluid.isSource() || !state.getCollisionShape(level,POS).isEmpty())
-                return ShoreField.DRY;
+            if(!fluid.is(FluidTags.WATER)) { scan[1]++; return ShoreField.DRY; }
+            if(!fluid.isSource()) { scan[2]++; return ShoreField.DRY; }
+            if(!state.getCollisionShape(level,POS).isEmpty()) { scan[3]++; return ShoreField.DRY; }
             for(int d=1;d<=2;d++) if(!chunk.getFluidState(POS.set(x,y-d,z)).is(FluidTags.WATER))
-                return ShoreField.DRY;
-            return y+8f/9f-.001f;
+                { scan[4]++; return ShoreField.DRY; }
+            // Store the source BLOCK height, not a hard-coded mesher surface height.
+            return y;
         }
-        return ShoreField.DRY;
+        scan[1]++; return ShoreField.DRY;
     }
 
     private static boolean shaderPack() {
@@ -114,10 +161,14 @@ public final class WaveRenderer {
     }
 
     public static void begin() {
+        rendererSeen=true;
         int program=GL33C.glGetInteger(GL33C.GL_CURRENT_PROGRAM);
+        if(program==0) { BINDINGS.push(new Binding(-1,-1)); return; }
         int enabled=GL33C.glGetUniformLocation(program,"aste_WaveEnabled");
         BINDINGS.push(new Binding(-1,-1));
         if(enabled<0) return; // Alternate/Iris shader: leave it completely alone.
+        uniformSeen=true;
+        displacementEnabled=false;
         GL33C.glUniform1f(enabled,0);
         var mc=Minecraft.getInstance();
         if(mc.level!=level || level==null || !WaveConfig.ENABLED.get() || shaderPack() || (!ready && !upload)) return;
@@ -150,6 +201,7 @@ public final class WaveRenderer {
         sprite(program,"aste_WaveFlow","water_flow");
         sprite(program,"aste_WaveOverlay","water_overlay");
         GL33C.glUniform1f(enabled,1);
+        displacementEnabled=true;
     }
 
     public static void end() {
