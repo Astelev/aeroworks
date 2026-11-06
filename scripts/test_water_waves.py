@@ -231,6 +231,23 @@ trough_red=[trough_pixels[i] for i in range(0,len(trough_pixels),4) if trough_pi
 assert sum(crest_red)/len(crest_red)>sum(trough_red)/len(trough_red)+.15
 assert max(crest_red)-min(crest_red)>.05, 'Foam must have patchy detail, not uniform white bands'
 assert abs(sum(trough_red)/len(trough_red)-.05)<1e-4, 'Trough water tint changed'
+# Weak wind must not produce crest foam, even if the configured base amplitude is high.
+active_tex(0x84C6);bind_tex(0x0DE1,wind_tex)
+for i in range(11*11):wind_data[4*i],wind_data[4*i+1]=.4,.4
+tex_image(0x0DE1,0,0x8814,11,11,0,0x1908,0x1406,wind_data)
+render_mask(.64,math.pi/2,foam=True)
+assert max(render_mask.last_pixels[::4])<.051, 'Weak wind still generates white foam'
+for i in range(11*11):wind_data[4*i],wind_data[4*i+1]=1,1
+active_tex(0x84C6);bind_tex(0x0DE1,wind_tex);tex_image(0x0DE1,0,0x8814,11,11,0,0x1908,0x1406,wind_data)
+# Strong wind over shallow water has too little actual wave amplitude for foam.
+u4f(loc('aste_WaveDetail'),48,0,.65,0)
+for i in range(129*129):depth_field[4*i+2]=8
+active_tex(0x84C7);bind_tex(0x0DE1,tex);tex_image(0x0DE1,0,0x8814,129,129,0,0x1908,0x1406,depth_field)
+render_mask(.64,math.pi/2,foam=True)
+assert max(render_mask.last_pixels[::4])<.051, 'Shallow storm ripples still generate white foam'
+for i in range(129*129):depth_field[4*i+2]=64
+active_tex(0x84C7);bind_tex(0x0DE1,tex);tex_image(0x0DE1,0,0x8814,129,129,0,0x1908,0x1406,depth_field)
+print('Foam gate: weak wind and shallow storm ripples have no white crest tint')
 u1f(loc('aste_FoamStrength'),0)
 render_mask(.64,math.pi/2,foam=True)
 assert max(render_mask.last_pixels[::4])<.051, 'Foam disable must restore native water colour'
@@ -251,7 +268,7 @@ assert ok.value,log.value.decode()
 use(program);enable(0x8C89)
 bind_vao(vao);bind_buffer(0x8C8E,buffer);buffer_data(0x8C8E,12,None,0x88E9);bind_base(0x8C8E,0,buffer)
 u3i=bind(gl,'glUniform3i',None,I,I,I,I);u1ui=bind(gl,'glUniform1ui',None,I,U)
-u1f(loc('aste_WaveDetailed'),1);u4f(loc('aste_WaveDetail'),16,.2,.65,.35)
+u1f(loc('aste_WaveDetailed'),1);u4f(loc('aste_WaveDetail'),48,.2,.65,.35)
 u1f(loc('aste_WaveWarp'),32*.22)
 u1ui(loc('aste_WaveSeed'),0x12345678)
 wind_tex=U();gen_tex(1,C.byref(wind_tex));active_tex(0x84C6);bind_tex(0x0DE1,wind_tex)

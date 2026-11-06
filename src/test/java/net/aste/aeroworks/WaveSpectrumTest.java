@@ -31,7 +31,7 @@ public final class WaveSpectrumTest {
         double strong=WaveShape.height(profile(baseline),moderate,x,z,t,32);
         near(strong,calm*2,1e-9,"Wave energy follows actual/storm wind ratio");
         double shallow=WaveShape.height(profile(baseline),moderate,x,z,t,4);
-        near(shallow,strong*WaveMath.smooth(.25),1e-9,"Depth attenuates main swell");
+        near(shallow,strong*WaveMath.smooth(4.0/48)/WaveMath.smooth(32.0/48),1e-9,"Depth attenuates main swell");
         near(WaveShape.height(p,wind(0,0,0,0,0),x,z,t,32),0,0,"No local wind energy");
         near(WaveWindStates.stormSpeed(WindParameters.DEFAULT,64),6,0,"Sea uses configured surface storm wind");
         near(WaveWindStates.stormSpeed(WindParameters.DEFAULT,250),18,0,"High lakes use configured storm wind at their height");
@@ -92,7 +92,7 @@ public final class WaveSpectrumTest {
             }
             minCrest=Math.min(minCrest,bestU);maxCrest=Math.max(maxCrest,bestU);
             double xx=8*c-cross*sn,zz=8*sn+cross*c;
-            near(WaveShape.height(profile(straight),steady,xx,zz,0,32),.5*Math.sqrt(.5),1e-6,"Zero distortion restores straight carrier crests");
+            near(WaveShape.height(profile(straight),steady,xx,zz,0,32),.5*Math.sqrt(.5)*WaveMath.smooth(32.0/48),1e-6,"Zero distortion restores straight carrier crests");
         }
         check(maxCrest-minCrest>2,"Crests must bend visibly by several blocks without amplitude noise or short waves");
         // Spatial and temporal lattice boundaries must remain continuous even at high distortion.
@@ -102,6 +102,16 @@ public final class WaveSpectrumTest {
             double b=WaveShape.height(profile(extreme),grid,boundary+1e-5,7,24+1e-5,32);
             near(a,b,2e-4,"No seams at spatial/time noise-cell boundaries");
         }
+        near(d.effectiveDepth(),48,0,"Existing reference depth gains the wider default gradient");
+        double[] factors={8,16,24,32,48,64};double previous=-1;
+        for(double waterDepth:factors){
+            double factor=WaveMath.smooth(waterDepth/d.effectiveDepth());
+            check(factor>=previous,"Depth-dependent amplitude stays monotonic");previous=factor;
+        }
+        check(WaveMath.smooth(16.0/d.effectiveDepth())<.27&&WaveMath.smooth(32.0/d.effectiveDepth())>.74,
+                "Medium and deep water must have clearly distinct amplitudes");
+        var oldRange=new WaveDetail(true,16,0,48,24,.65,0,.25,1.7,0,1);
+        near(oldRange.effectiveDepth(),16,0,"Range multiplier one restores the original depth span");
         // CPU reference fixtures consumed by real OpenGL tests, including large/negative coordinates.
         var rows=new ArrayList<String>();var random=new Random(431);
         for(int i=0;i<64;i++){

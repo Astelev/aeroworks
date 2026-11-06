@@ -100,7 +100,9 @@ vec3 aste_wavePosition(vec3 p, vec2 uv) {
     float weight = field.g * smoothstep(0.0, 8.0, edge);
     float height=aste_waveHeight(p.xz,field.b);
     float crest=smoothstep(0.45,0.92,height/max(0.001,aste_WaveProfile.w*aste_waveEnergy));
-    v_asteWaveFoam=crest*weight*aste_FoamStrength*smoothstep(0.01,0.1,aste_WaveProfile.w*aste_waveEnergy)*(0.65+0.35*aste_waveStorm);
+    float agitation=aste_WaveDetailed>0.5?aste_waveStorm:1.0;
+    float largeWaves=smoothstep(0.18,0.4,aste_WaveProfile.w*aste_waveEnergy*weight);
+    v_asteWaveFoam=crest*weight*aste_FoamStrength*largeWaves*agitation;
     v_asteWaveFoamUV=(p.xz+aste_FoamOrigin)*1.5;
     p.y += height*weight;
     return p;

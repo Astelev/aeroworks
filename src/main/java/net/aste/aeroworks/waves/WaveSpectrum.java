@@ -16,7 +16,7 @@ public final class WaveSpectrum {
     public double height(double x,double z,double depth){
         var d=p.detail();double mainPhase=kx*x+kz*z+phase;
         if(!d.enabled())return p.amplitude()*WaveMath.fastSin(mainPhase);
-        double ratio=wind.ratio(x,z,seconds),energy=Math.sqrt(ratio)*WaveMath.smooth(depth/d.fullDepth());
+        double ratio=wind.ratio(x,z,seconds),energy=Math.sqrt(ratio)*WaveMath.smooth(depth/d.effectiveDepth());
         if(energy==0)return 0;
         double n=d.noiseStrength()==0&&warpAmplitude==0?0:WaveShape.noise(x/d.noiseScale(),z/d.noiseScale(),seconds/d.noisePeriod(),wind.seed());
         double warpX=0,warpZ=0;

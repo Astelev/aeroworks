@@ -49,3 +49,10 @@ Tests compare 200,000 seeded spawn decisions against Minecraft and pin construct
 The first warp component reuses the existing broad noise sample; the second adds one extra value-noise sample, sharing `noise_scale` and `noise_period`. Warp strength is independent of `noise_strength`, so turning off height noise still permits curved crests. Set `crest_distortion=0` to disable the new curvature. Wind/depth/shore queries remain at the original world positions: distortion changes only carrier phase, so it does not move coastlines or hull masks. Both native buoyancy integrations and GLSL use the same formula and coefficients.
 
 Tests track crest positions along a transverse line with amplitude noise/chop disabled, check continuity at negative/positive spatial and temporal lattice boundaries, and compare distorted Java/GLSL heights at distant coordinates.
+
+
+## Strong-wave foam and wider depth response
+
+`wave-depth-r7` uses wave network protocol **6**. Crest foam in the detailed profile is multiplied by the strong-wind gate (the existing `chop_threshold`) and by actual local wave amplitude after depth and shore attenuation. Below 0.18 blocks of amplitude there is no foam; it fades fully in by 0.4 blocks. Weak wind and shallow storm ripples therefore retain their native water tint. The legacy uniform-sine mode uses amplitude alone because it has no wind-energy gate.
+
+New common setting `detail.depth_range_multiplier` defaults to **3**, widening the depth response even for existing configs with `full_depth=16`. Effective full-strength depth is `min(128, full_depth * depth_range_multiplier)`, default **48 blocks**. Smoothstep amplitudes relative to deep water are about **7% at 8 blocks, 26% at 16, 50% at 24, 74% at 32 and 100% at 48**; wind energy and shore fade multiply these values. Set the multiplier to 1 to restore the former depth span. The shader and both buoyancy paths use the same effective depth, with no additional terrain queries.

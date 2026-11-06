@@ -6,7 +6,7 @@ import net.neoforged.fml.event.config.ModConfigEvent;
 public final class WavePhysicsConfig {
     public static final ModConfigSpec SPEC;
     private static final ModConfigSpec.BooleanValue ENABLED,BUOYANCY,DYNAMIC;
-    private static final ModConfigSpec.DoubleValue FULL_DEPTH,NOISE,NOISE_SCALE,NOISE_PERIOD,CREST_DISTORTION,CHOP_THRESHOLD,CHOP_FRACTION,CHOP_LENGTH,CHOP_SPEED;
+    private static final ModConfigSpec.DoubleValue FULL_DEPTH,DEPTH_RANGE,NOISE,NOISE_SCALE,NOISE_PERIOD,CREST_DISTORTION,CHOP_THRESHOLD,CHOP_FRACTION,CHOP_LENGTH,CHOP_SPEED;
     private static final ModConfigSpec.DoubleValue AMPLITUDE,WAVELENGTH,SPEED,DIRECTION,SHORE_FADE;
     private static volatile WaveParameters current=WaveParameters.CALM;
     static {
@@ -20,7 +20,8 @@ public final class WavePhysicsConfig {
         SHORE_FADE=b.defineInRange("shore_fade",16.0,4,64);
         b.push("detail");
         DYNAMIC=b.comment("Wind/depth response, coherent noise and strong-wind chop. False restores the original sine.").define("enabled",true);
-        FULL_DEPTH=b.comment("Depth in blocks at which waves reach full strength; uses the loaded chunk ocean-floor heightmap.").defineInRange("full_depth",16.0,3,128);
+        FULL_DEPTH=b.comment("Reference depth in blocks. Full wave strength is reached at full_depth * depth_range_multiplier (capped at 128). Uses the loaded chunk ocean-floor heightmap.").defineInRange("full_depth",16.0,3,128);
+        DEPTH_RANGE=b.comment("Broaden depth-dependent amplitude variation. Default 3 with full_depth=16 gives full-strength waves at 48 blocks; 1 restores the old depth range.").defineInRange("depth_range_multiplier",3.0,1,8);
         NOISE=b.comment("Bounded main-wave amplitude and phase modulation; 0 disables this noise.").defineInRange("noise_strength",.2,0,.5);
         NOISE_SCALE=b.defineInRange("noise_scale",48.0,8,512);
         NOISE_PERIOD=b.comment("Seconds for the broad noise to change.").defineInRange("noise_period",24.0,2,300);
@@ -37,7 +38,7 @@ public final class WavePhysicsConfig {
     public static void reloading(ModConfigEvent.Reloading e){update(e);}
     private static void update(ModConfigEvent e){
         if(e.getConfig().getSpec()==SPEC) current=new WaveParameters(ENABLED.get(),BUOYANCY.get(),AMPLITUDE.get(),
-                WAVELENGTH.get(),SPEED.get(),DIRECTION.get(),SHORE_FADE.get(),new WaveDetail(DYNAMIC.get(),FULL_DEPTH.get(),NOISE.get(),NOISE_SCALE.get(),NOISE_PERIOD.get(),CHOP_THRESHOLD.get(),CHOP_FRACTION.get(),CHOP_LENGTH.get(),CHOP_SPEED.get(),CREST_DISTORTION.get()));
+                WAVELENGTH.get(),SPEED.get(),DIRECTION.get(),SHORE_FADE.get(),new WaveDetail(DYNAMIC.get(),FULL_DEPTH.get(),NOISE.get(),NOISE_SCALE.get(),NOISE_PERIOD.get(),CHOP_THRESHOLD.get(),CHOP_FRACTION.get(),CHOP_LENGTH.get(),CHOP_SPEED.get(),CREST_DISTORTION.get(),DEPTH_RANGE.get()));
     }
     private WavePhysicsConfig(){}
 }

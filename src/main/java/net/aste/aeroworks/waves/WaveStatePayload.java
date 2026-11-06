@@ -18,7 +18,7 @@ public record WaveStatePayload(ResourceLocation dimension,WaveParameters paramet
         b.writeBoolean(p.enabled());b.writeBoolean(p.buoyancy());
         b.writeDouble(p.amplitude());b.writeDouble(p.wavelength());b.writeDouble(p.speed());b.writeDouble(p.direction());b.writeDouble(p.shoreFade());
         var d=p.detail();b.writeBoolean(d.enabled());
-        for(double n:new double[]{d.fullDepth(),d.noiseStrength(),d.noiseScale(),d.noisePeriod(),d.chopThreshold(),d.chopFraction(),d.chopLength(),d.chopSpeed(),d.crestDistortion()})b.writeDouble(n);
+        for(double n:new double[]{d.fullDepth(),d.noiseStrength(),d.noiseScale(),d.noisePeriod(),d.chopThreshold(),d.chopFraction(),d.chopLength(),d.chopSpeed(),d.crestDistortion(),d.depthRangeMultiplier()})b.writeDouble(n);
         b.writeInt(v.wind.seed());b.writeVarInt(v.wind.cells().size());
         for(var c:v.wind.cells().values()){b.writeInt(c.x());b.writeInt(c.z());b.writeFloat(c.from());b.writeFloat(c.to());b.writeDouble(c.started());}
         b.writeUtf(v.revision,64);b.writeUtf(v.diagnostics,192);
@@ -27,7 +27,7 @@ public record WaveStatePayload(ResourceLocation dimension,WaveParameters paramet
         var dim=b.readResourceLocation();
         boolean enabled=b.readBoolean(),buoyancy=b.readBoolean();
         double amp=b.readDouble(),length=b.readDouble(),speed=b.readDouble(),direction=b.readDouble(),fade=b.readDouble();
-        var d=new WaveDetail(b.readBoolean(),b.readDouble(),b.readDouble(),b.readDouble(),b.readDouble(),b.readDouble(),b.readDouble(),b.readDouble(),b.readDouble(),b.readDouble());
+        var d=new WaveDetail(b.readBoolean(),b.readDouble(),b.readDouble(),b.readDouble(),b.readDouble(),b.readDouble(),b.readDouble(),b.readDouble(),b.readDouble(),b.readDouble(),b.readDouble());
         var p=new WaveParameters(enabled,buoyancy,amp,length,speed,direction,fade,d);
         int seed=b.readInt(),count=b.readVarInt();
         if(count<0||count>WaveWindGrid.MAX_CELLS)throw new IllegalArgumentException("Too many sea wind cells");

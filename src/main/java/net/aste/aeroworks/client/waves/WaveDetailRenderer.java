@@ -49,7 +49,7 @@ final class WaveDetailRenderer {
         GlStateManager._activeTexture(active);
         GL33C.glUniform1i(loc(program,"aste_WaveWind"),UNIT);
         GL33C.glUniform3f(loc(program,"aste_WaveWindGrid"),(float)(camera.x-originX),(float)(camera.z-originZ),(float)(seconds-epoch));
-        GL33C.glUniform4f(loc(program,"aste_WaveDetail"),(float)d.fullDepth(),(float)d.noiseStrength(),(float)d.chopThreshold(),(float)d.chopFraction());
+        GL33C.glUniform4f(loc(program,"aste_WaveDetail"),(float)d.effectiveDepth(),(float)d.noiseStrength(),(float)d.chopThreshold(),(float)d.chopFraction());
         band(program,"aste_WaveChopA",camera,seconds,p.wavelength()*d.chopLength(),p.speed()*d.chopSpeed(),p.radians()+.7);
         band(program,"aste_WaveChopB",camera,seconds,p.wavelength()*d.chopLength()/1.37,p.speed()*d.chopSpeed()*.83,p.radians()-1.1);
         noise(program,"A",camera,seconds,d.noiseScale(),d.noisePeriod());
