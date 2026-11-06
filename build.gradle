@@ -359,3 +359,12 @@ tasks.named('check') { dependsOn testParkingBrakes }
     }
     tasks.named('check'){dependsOn task}
 }
+
+// Loading a second COMMON config must not invoke readers for the first, still-unloaded spec.
+def testConfigRouting = tasks.register('testConfigRouting', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.ConfigRoutingTest'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testConfigRouting }

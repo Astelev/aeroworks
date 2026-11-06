@@ -9,7 +9,6 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.config.ModConfigEvent;
 
 /** Cached settings and an explicit block tag: sharing Sable's propulsion API does not classify a jet as a propeller. */
@@ -22,7 +21,7 @@ public final class PropellerSettings {
     public static void loading(ModConfigEvent.Loading event) { reload(event); }
     public static void reloading(ModConfigEvent.Reloading event) { reload(event); }
     private static void reload(ModConfigEvent event) {
-        if(!event.getConfig().getModId().equals(Aeroworks.MODID)||event.getConfig().getType()!=ModConfig.Type.COMMON) return;
+        if (event.getConfig().getSpec() != Config.SPEC) return;
         PropellerProfile profile;
         try {
             profile=new PropellerProfile(Config.PROPELLER_FADE_START.get(),Config.PROPELLER_SCALE_HEIGHT.get());
