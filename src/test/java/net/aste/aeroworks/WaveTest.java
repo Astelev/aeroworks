@@ -46,7 +46,7 @@ public final class WaveTest {
         check(found,"Exact Veil GLSL processor missing");
         try(var loader=new java.net.URLClassLoader(new java.net.URL[]{parser.toUri().toURL()},WaveTest.class.getClassLoader())) {
             var type=loader.loadClass("io.github.ocelot.glslprocessor.api.GlslParser");
-            var tree=type.getMethod("preprocessParse",String.class,java.util.Map.class).invoke(null,source,java.util.Map.of());
+            var tree=type.getMethod("preprocessParse",String.class,java.util.Map.class).invoke(null,source,new java.util.HashMap<String,String>());
             return (String)tree.getClass().getMethod("toSourceString").invoke(tree);
         } finally { Files.delete(parser); }
     }
