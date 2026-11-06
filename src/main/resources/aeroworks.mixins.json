@@ -26,6 +26,8 @@
     "failure.SyncedFailureInvoker",
     "deepseas.DeepSeasWindManagerMixin",
     "deepseas.DeepSeasSailWindMixin",
-    "deepseas.DeepSeasWaveBuoyancyMixin"
+    "deepseas.DeepSeasWaveBuoyancyMixin",
+    "waves.SolidWaveBuoyancyMixin",
+    "waves.WaveGeometryMixin"
   ]
 }

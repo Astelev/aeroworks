@@ -5,7 +5,7 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 
 /** No client classes on the dedicated-server registration path. */
 public final class WaveNetwork {
-    public static final String REVISION="wave-physics-r2";
+    public static final String REVISION="wave-physics-r3";
     private static Consumer<WaveStatePayload> receiver=p->{};
     private WaveNetwork(){}
     public static void installClient(Consumer<WaveStatePayload> handler){receiver=handler;}

@@ -368,3 +368,12 @@ def testConfigRouting = tasks.register('testConfigRouting', JavaExec) {
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
 }
 tasks.named('check') { dependsOn testConfigRouting }
+
+def testSolidWaves = tasks.register('testSolidWaves', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.SolidWaveTest'
+    args file('libs/sable-neoforge-1.21.1-2.0.6.jar').absolutePath
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testSolidWaves }
