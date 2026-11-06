@@ -22,6 +22,8 @@ public class ExampleModClient {
                 net.aste.aeroworks.client.WindVisualConfig.SPEC,"aste_aeroworks-wind-client.toml");
         modEventBus.addListener(net.aste.aeroworks.client.CloudFogPostProcess::registerReloadListener);
         container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT,
+                net.aste.aeroworks.client.waves.WaveConfig.SPEC,"aste_aeroworks-waves-client.toml");
+        container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT,
                 net.aste.aeroworks.client.CloudFogConfig.SPEC);
         // Allows NeoForge to create a config screen for this mod's configs.
         // The config screen is accessed by going to the Mods screen > clicking on your mod > clicking on config.

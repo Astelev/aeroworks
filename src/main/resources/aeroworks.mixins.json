@@ -8,7 +8,9 @@
     "client.CloudFogFrameMixin",
     "client.CloudFogProjectionMixin",
     "client.CloudFogDhMixin",
-    "client.WeatherRendererInvoker"
+    "client.WeatherRendererInvoker",
+    "client.WaveShaderMixin",
+    "client.WaveRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1
