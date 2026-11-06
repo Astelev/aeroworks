@@ -40,6 +40,11 @@ public final class DeepSeasWindTest {
         check(Math.abs(out.x-result.x)<1e-10&&Math.abs(out.z-result.z)<1e-10,"No-sail vane and physics share storm direction/strength");
         var packet=new RegistryFriendlyByteBuf(Unpooled.buffer(),RegistryAccess.EMPTY);
         try{DeepSeasWindPayload.CODEC.encode(packet,actual);check(actual.equals(DeepSeasWindPayload.CODEC.decode(packet)),"Preserve weather/cloud heading/transition in network");}finally{packet.release();}
+        var manyCells=new HashMap<Long,WindWeatherGrid.Cell>();
+        for(int i=0;i<WindWeatherGrid.MAX_CELLS;i++){var c=new WindWeatherGrid.Cell(i,-i,blend);manyCells.put(c.key(),c);}
+        var maximum=new DeepSeasWindPayload(dim,30,true,true,123,4,.03,WindParameters.DEFAULT,9,2,3,manyCells,bodies);
+        packet=new RegistryFriendlyByteBuf(Unpooled.buffer(),RegistryAccess.EMPTY);
+        try{DeepSeasWindPayload.CODEC.encode(packet,maximum);check(packet.readableBytes()<40*1024,"Maximum weather/body snapshot remains bounded");check(maximum.equals(DeepSeasWindPayload.CODEC.decode(packet)),"Maximum snapshot roundtrip");}finally{packet.release();}
         check(WindWeatherGrid.coordinate(-.1)==-1&&WindWeatherGrid.coordinate(-128)==-1,"Negative world coordinates select correct cells");
         check(WindWeatherGrid.lookup(cells,123,-321)==blend,"Selection depends on world position, not body identity or sails");
         System.out.println("Deep Seas wind: units/heading/calm, bounded payload, server config and model parity passed");
