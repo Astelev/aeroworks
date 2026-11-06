@@ -29,6 +29,8 @@ public final class WavePhysicsTest {
         near(bow+stern,1,1e-6,"Symmetric wave changes lift centre without duplicating total lift");
         double centre=(4*bow-4*stern)/(bow+stern);
         check(centre>2,"Wave must move centre of buoyancy towards the submerged bow");
+        step.observe(true);step.depth(.5,4,0,0,63);step.depth(3,4,0,0,63);
+        check(step.observation().samples()==2 && step.observation().weighted()==2 && step.observation().changed()==1,"Runtime diagnostics distinguish real immersion change from fully submerged cells");
         step.begin(profile(true,true,.5),shore,4,1);basis(step,pose);
         double opposite=4*Math.clamp(step.depth(.5,4,0,0,63),0,1)-4*Math.clamp(step.depth(.5,-4,0,0,63),0,1);
         near(opposite,-centre,1e-6,"Half period reverses pitch moment");
@@ -50,8 +52,8 @@ public final class WavePhysicsTest {
         for(double a=-100000;a<100000;a+=.713)near(WaveMath.fastSin(a),Math.sin(a),3.1e-7,"Fast sine must agree with displayed wave");
         var buf=new RegistryFriendlyByteBuf(Unpooled.buffer(),RegistryAccess.EMPTY);
         try{
-            var payload=new WaveStatePayload(ResourceLocation.fromNamespaceAndPath("minecraft","overworld"),profile(true,true,.8));
-            WaveStatePayload.CODEC.encode(buf,payload);check(buf.readableBytes()<128,"Only small profile packets, no per-cell forces");
+            var payload=new WaveStatePayload(ResourceLocation.fromNamespaceAndPath("minecraft","overworld"),profile(true,true,.8),WaveNetwork.REVISION,"field=ready applies=100 cells=64 wet-wave=64 changed=12 max-dY=0.500");
+            WaveStatePayload.CODEC.encode(buf,payload);check(buf.readableBytes()<512,"Only small profile packets, no per-cell forces");
             check(WaveStatePayload.CODEC.decode(buf).equals(payload)&&buf.readableBytes()==0,"Visual/physics profile synchronization");
         }finally{buf.release();}
         boolean rejected=false;try{profile(true,true,Double.NaN);}catch(IllegalArgumentException e){rejected=true;}

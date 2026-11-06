@@ -35,5 +35,5 @@ public abstract class DeepSeasWaveBuoyancyMixin {
         return ServerWaves.step().depth(depth,x,y,z,relativeSurface+originY-1.5);
     }
     @Inject(method="apply",at=@At("RETURN"),require=1)
-    private static void aste_aeroworks$end(CallbackInfo ci){ServerWaves.step().end();}
+    private static void aste_aeroworks$end(CallbackInfo ci){ServerWaves.end();}
 }

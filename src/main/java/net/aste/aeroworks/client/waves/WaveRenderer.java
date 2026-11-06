@@ -53,6 +53,8 @@ public final class WaveRenderer {
 
     @SubscribeEvent
     public static void debug(CustomizeGuiOverlayEvent.DebugText event) {
+        event.getLeft().add("AeroWorks build: "+net.aste.aeroworks.waves.WaveNetwork.REVISION+" / server: "+WaveClientState.revision(level));
+        event.getLeft().add("Wave buoyancy: "+WaveClientState.diagnostics(level));
         event.getLeft().add("AeroWorks waves: "+status());
         event.getLeft().add("  compile="+WaveShader.compileHookSeen+", shader="+WaveShader.attached+", renderer="+rendererSeen+", uniform="+uniformSeen
                 +", water="+wetCells+", waves="+waveCells+", fields="+fieldCount);
