@@ -6,6 +6,8 @@ exec(Path('scripts/test_cloud_fog_shader.py').read_text().split("vertex = '''")[
 source=Path('build/wave-test/terrain.vsh').read_text()
 shader(0x8B31, source)
 shader(0x8B31, source.replace('#define USE_FOG',''))
+shader(0x8B31, Path('build/wave-test/terrain-processed.vsh').read_text())
+shader(0x8B31, Path('build/wave-test/terrain-veil.vsh').read_text())
 wave=Path('src/main/resources/assets/aste_aeroworks/shaders/waves/displacement.glsl').read_text()
 vertex='#version 330 core\n'+wave+'''
 uniform vec3 testPosition;
@@ -75,6 +77,8 @@ print('Actual Sodium GLSL compiled; crest, trough, zero crossing, shore, map edg
 
 # Exercise the FULL patched Sodium vertex shader (including its compressed vertex
 # decoder and region translation), rather than only compiling it and testing a stub.
+# Run the complete vertex path after the exact Veil formatter bundled in Sable.
+source=Path('build/wave-test/terrain-veil.vsh').read_text()
 full=create_program(); attach(full,shader(0x8B31,source))
 bind_attribute=bind(gl,'glBindAttribLocation',None,U,U,C.c_char_p)
 for index,name in enumerate(['a_Position','a_Color','a_TexCoord','a_LightAndData']):

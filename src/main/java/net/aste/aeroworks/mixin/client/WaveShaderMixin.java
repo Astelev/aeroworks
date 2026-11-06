@@ -1,19 +1,20 @@
 package net.aste.aeroworks.mixin.client;
 
 import net.aste.aeroworks.client.waves.WaveShader;
-import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 
 @Pseudo
-@Mixin(targets="net.caffeinemc.mods.sodium.client.gl.shader.ShaderLoader", remap=false)
+@Mixin(targets="net.caffeinemc.mods.sodium.client.gl.shader.GlShader", remap=false)
 public abstract class WaveShaderMixin {
-    @Inject(method="getShaderSource", at=@At("RETURN"), cancellable=true, require=0)
-    private static void aste_aeroworks$waveShader(ResourceLocation name, CallbackInfoReturnable<String> cir) {
-        if (name.getNamespace().equals("sodium") && name.getPath().equals("blocks/block_layer_opaque.vsh"))
-            cir.setReturnValue(WaveShader.patch(cir.getReturnValue()));
+    // Patch the final source, after Veil and any resource-loader replacements.
+    // A changed upload contract must fail validation instead of silently losing the effect.
+    @ModifyArg(method="<init>", at=@At(value="INVOKE", target=
+            "Lnet/caffeinemc/mods/sodium/client/gl/shader/ShaderWorkarounds;safeShaderSource(ILjava/lang/String;)V"),
+            index=1, require=1)
+    private static String aste_aeroworks$waveShader(String source) {
+        return WaveShader.compiledSource(source);
     }
 }

@@ -54,7 +54,7 @@ public final class WaveRenderer {
     @SubscribeEvent
     public static void debug(CustomizeGuiOverlayEvent.DebugText event) {
         event.getLeft().add("AeroWorks waves: "+status());
-        event.getLeft().add("  shader="+WaveShader.attached+", renderer="+rendererSeen+", uniform="+uniformSeen
+        event.getLeft().add("  compile="+WaveShader.compileHookSeen+", shader="+WaveShader.attached+", renderer="+rendererSeen+", uniform="+uniformSeen
                 +", water="+wetCells+", waves="+waveCells+", fields="+fieldCount);
         event.getLeft().add("  excluded: unloaded/water/source/solid/shallow="+Arrays.toString(completedScan));
     }
@@ -63,7 +63,8 @@ public final class WaveRenderer {
         if(!WaveConfig.ENABLED.get()) return "disabled in config";
         if(!ModList.get().isLoaded("sodium")) return "Sodium absent";
         if(shaderPack()) return "Iris shader pack active";
-        if(!WaveShader.attached) return "terrain shader hook not called";
+        if(!WaveShader.compileHookSeen) return "Sodium compile hook not called";
+        if(!WaveShader.attached) return "terrain vertex shader not recognized";
         if(!rendererSeen) return "terrain renderer hook not called";
         if(!uniformSeen) return "wave uniform absent from terrain program";
         if(!ready && !upload) return "building water field "+cursor+"/"+(SIZE*SIZE);

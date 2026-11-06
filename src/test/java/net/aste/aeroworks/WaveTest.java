@@ -30,6 +30,26 @@ public final class WaveTest {
         throw new AssertionError("Sodium terrain renderer class not found");
     }
     private static void check(boolean ok,String message) { if(!ok) throw new AssertionError(message); }
+    private static String veilFormat(String source,Path sable)throws Exception {
+        byte[] veil;
+        try(var jar=new JarFile(sable.toFile())) {
+            veil=jar.getInputStream(jar.getJarEntry("META-INF/jarjar/veil-neoforge-1.21.1-4.3.2.jar")).readAllBytes();
+        }
+        Path parser=Files.createTempFile("wave-veil-parser-",".jar");
+        boolean found=false;
+        try(var nested=new java.util.jar.JarInputStream(new java.io.ByteArrayInputStream(veil))) {
+            java.util.jar.JarEntry e;
+            while((e=nested.getNextJarEntry())!=null) if(e.getName().endsWith("glsl-processor-0.2.3.jar")) {
+                Files.write(parser,nested.readAllBytes()); found=true; break;
+            }
+        }
+        check(found,"Exact Veil GLSL processor missing");
+        try(var loader=new java.net.URLClassLoader(new java.net.URL[]{parser.toUri().toURL()},WaveTest.class.getClassLoader())) {
+            var type=loader.loadClass("io.github.ocelot.glslprocessor.api.GlslParser");
+            var tree=type.getMethod("preprocessParse",String.class,java.util.Map.class).invoke(null,source,java.util.Map.of());
+            return (String)tree.getClass().getMethod("toSourceString").invoke(tree);
+        } finally { Files.delete(parser); }
+    }
     private static String read(JarFile jar,String path)throws Exception {
         try(var in=jar.getInputStream(jar.getJarEntry(path))) { return new String(in.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8); }
     }
@@ -69,18 +89,46 @@ public final class WaveTest {
         field=ShoreField.build(h,size,4,16);
         check(field[(20*size+20)*2+1]==0,"Different water levels blend together");
         try(var jar=sodium(Path.of(args[0]))) {
-            target(jar,"gl/shader/ShaderLoader","getShaderSource","(Lnet/minecraft/resources/ResourceLocation;)Ljava/lang/String;");
+            // Pin the exact final-source upload invocation, not merely a loader method that may be bypassed.
+            var shaderClass=new ClassNode();
+            try(var in=jar.getInputStream(jar.getJarEntry("net/caffeinemc/mods/sodium/client/gl/shader/GlShader.class"))) {
+                new ClassReader(in.readAllBytes()).accept(shaderClass,0);
+            }
+            int uploads=0;
+            for(var m:shaderClass.methods) if(m.name.equals("<init>")) for(var i:m.instructions)
+                if(i instanceof org.objectweb.asm.tree.MethodInsnNode c
+                        && c.owner.equals("net/caffeinemc/mods/sodium/client/gl/shader/ShaderWorkarounds")
+                        && c.name.equals("safeShaderSource") && c.desc.equals("(ILjava/lang/String;)V")) uploads++;
+            check(uploads==1,"Final-source upload hook changed: "+uploads);
             String pass="(Lnet/caffeinemc/mods/sodium/client/render/chunk/terrain/TerrainRenderPass;)V";
             target(jar,"render/chunk/ShaderChunkRenderer","begin",pass);
             target(jar,"render/chunk/ShaderChunkRenderer","end",pass);
             String vertex=read(jar,"assets/sodium/shaders/blocks/block_layer_opaque.vsh");
-            String patched=WaveShader.patch(vertex);
+            String patched=WaveShader.compiledSource(vertex);
             check(!patched.equals(vertex),"Sodium shader was not patched");
             check(WaveShader.patch(patched).equals(patched),"Wave shader patched twice");
             String fragment=read(jar,"assets/sodium/shaders/blocks/block_layer_opaque.fsh");
-            check(!fragment.contains("aste_wavePosition"),"Unexpected fragment modification");
+            check(WaveShader.compiledSource(fragment).equals(fragment),"Fragment source changed");
+            String hullFragment=com.maxenonyme.createsubmarine.submarine.compat.sodium.WaterOcclusionPatch.apply(fragment,false);
+            check(hullFragment.contains("SableCloseSampler") && hullFragment.contains("discard"),"Deep Seas hull clipping not inserted");
+            check(WaveShader.compiledSource(hullFragment).equals(hullFragment),"Deep Seas hull fragment source changed");
+            check(WaveShader.compiledSource("#version 330\nvoid main(){gl_Position=vec4(0);}")
+                    .equals("#version 330\nvoid main(){gl_Position=vec4(0);}"),"Unrelated vertex shader changed");
             Files.createDirectories(Path.of("build/wave-test"));
             Files.writeString(Path.of("build/wave-test/terrain.vsh"),expand(jar,patched).replace("#version 330 core","#version 330 core\n#define USE_VERTEX_COMPRESSION\n#define USE_FOG"));
+            // The final source is already expanded/reformatted by Veil. Test without resource names or loader calls.
+            String processed=expand(jar,vertex).replace("vec3 position = _vert_position + translation;",
+                    "vec3\n position= ( _vert_position+\ntranslation ) ;").replace("void main()","void main ( void )");
+            String processedPatched=WaveShader.compiledSource(processed);
+            check(!processedPatched.equals(processed),"Processed vertex source was not patched");
+            check(WaveShader.compiledSource(processedPatched).equals(processedPatched),"Compiled source patched twice");
+            Files.writeString(Path.of("build/wave-test/terrain-processed.vsh"),processedPatched.replace("#version 330 core",
+                    "#version 330 core\n#define USE_VERTEX_COMPRESSION\n#define USE_FOG"));
+            String veil=veilFormat(expand(jar,vertex).replace("#version 330 core",
+                    "#version 330 core\n#define USE_VERTEX_COMPRESSION\n#define USE_FOG"),Path.of(args[2]));
+            String veilPatched=WaveShader.compiledSource(veil);
+            check(!veilPatched.equals(veil),"Actual Veil-formatted terrain shader was not patched");
+            Files.writeString(Path.of("build/wave-test/terrain-veil.vsh"),veilPatched);
         }
         try(var jar=new JarFile(args[1])) {
             // Hull clipping still uses displaced gl_FragCoord.z, not the old flat surface depth.
