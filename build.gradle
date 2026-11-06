@@ -377,3 +377,11 @@ def testSolidWaves = tasks.register('testSolidWaves', JavaExec) {
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
 }
 tasks.named('check') { dependsOn testSolidWaves }
+
+def testWaveSpectrum = tasks.register('testWaveSpectrum', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.WaveSpectrumTest'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testWaveSpectrum }

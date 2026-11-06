@@ -32,7 +32,7 @@ public final class WaveRenderer {
     private static final ArrayDeque<Binding> BINDINGS=new ArrayDeque<>();
     private static final BlockPos.MutableBlockPos POS=new BlockPos.MutableBlockPos();
     private static ClientLevel level;
-    private static float[] heights, pending;
+    private static float[] heights, depths, pending;
     private static int cursor, buildX, buildZ, originX, originZ, texture;
     private static int nextX, nextZ;
     private static boolean ready, upload;
@@ -82,7 +82,7 @@ public final class WaveRenderer {
         var mc=Minecraft.getInstance();
         if(level!=mc.level) {
             WaveClientState.clear(level);
-            level=mc.level; heights=pending=null; ready=upload=false; nextRefresh=0;
+            level=mc.level; heights=depths=pending=null; ready=upload=false; nextRefresh=0;
             wetCells=waveCells=fieldCount=0; ticks=lastReport=0; lastStatus=""; displacementEnabled=false;
         }
         if(level!=null && !mc.isPaused() && ++ticks-lastReport>=100) {
@@ -100,22 +100,24 @@ public final class WaveRenderer {
             if(level.getGameTime()<nextRefresh) return;
             buildX=Math.floorDiv(mc.player.getBlockX(),32)*32-(SIZE-1)*STEP/2;
             buildZ=Math.floorDiv(mc.player.getBlockZ(),32)*32-(SIZE-1)*STEP/2;
-            heights=new float[SIZE*SIZE];
+            heights=new float[SIZE*SIZE];depths=new float[SIZE*SIZE];
             Arrays.fill(heights,ShoreField.DRY); cursor=0;
         }
         for(int budget=0; budget<BUDGET && cursor<heights.length;budget++,cursor++) {
             int x=buildX+(cursor%SIZE)*STEP, z=buildZ+(cursor/SIZE)*STEP;
             float h=WaveTerrain.cell(level,x,z,POS);
-            heights[cursor]=h;
+            heights[cursor]=h;depths[cursor]=WaveTerrain.depth(level,x,z,h);
         }
         if(cursor==heights.length) {
-            pending=ShoreField.build(heights,SIZE,STEP,(float)WaveClientState.current(level).shoreFade());
+            var shore=ShoreField.build(heights,SIZE,STEP,(float)WaveClientState.current(level).shoreFade());
+            pending=new float[SIZE*SIZE*4];
+            for(int i=0;i<heights.length;i++){pending[i*4]=shore[i*2];pending[i*4+1]=shore[i*2+1];pending[i*4+2]=depths[i];}
             wetCells=waveCells=0; fieldCount++;
             for(int i=0;i<heights.length;i++) {
                 if(heights[i]!=ShoreField.DRY) wetCells++;
-                if(pending[i*2+1]>.001f) waveCells++;
+                if(pending[i*4+1]>.001f) waveCells++;
             }
-            nextX=buildX; nextZ=buildZ; upload=true; heights=null;
+            nextX=buildX; nextZ=buildZ; upload=true; heights=depths=null;
             nextRefresh=level.getGameTime()+8;
         }
     }
@@ -141,6 +143,7 @@ public final class WaveRenderer {
     }
 
     public static void begin() {
+        WaveDetailRenderer.enter();
         rendererSeen=true;
         int program=GL33C.glGetInteger(GL33C.GL_CURRENT_PROGRAM);
         if(program==0) { BINDINGS.push(new Binding(-1,-1)); return; }
@@ -163,7 +166,7 @@ public final class WaveRenderer {
         GlStateManager._bindTexture(texture);
         GL33C.glBindSampler(UNIT,0);
         if(upload) {
-            GL33C.glTexImage2D(GL33C.GL_TEXTURE_2D,0,GL33C.GL_RG32F,SIZE,SIZE,0,GL33C.GL_RG,GL33C.GL_FLOAT,pending);
+            GL33C.glTexImage2D(GL33C.GL_TEXTURE_2D,0,GL33C.GL_RGBA32F,SIZE,SIZE,0,GL33C.GL_RGBA,GL33C.GL_FLOAT,pending);
             GL33C.glTexParameteri(GL33C.GL_TEXTURE_2D,GL33C.GL_TEXTURE_MIN_FILTER,GL33C.GL_LINEAR);
             GL33C.glTexParameteri(GL33C.GL_TEXTURE_2D,GL33C.GL_TEXTURE_MAG_FILTER,GL33C.GL_LINEAR);
             GL33C.glTexParameteri(GL33C.GL_TEXTURE_2D,GL33C.GL_TEXTURE_WRAP_S,GL33C.GL_CLAMP_TO_EDGE);
@@ -174,6 +177,7 @@ public final class WaveRenderer {
         var camera=mc.gameRenderer.getMainCamera().getPosition();
         double direction=profile.radians(), length=profile.wavelength();
         double speed=profile.speed(), seconds=(level.getGameTime()+partial)/20.0;
+        WaveDetailRenderer.bind(program,level,camera,profile,seconds);
         GL33C.glUniform1i(loc(program,"aste_WaveShore"),UNIT);
         GL33C.glUniform3f(loc(program,"aste_WaveGrid"),(float)(camera.x-originX),(float)(camera.z-originZ),(float)camera.y);
         GL33C.glUniform4f(loc(program,"aste_WaveProfile"),(float)(WaveMath.TAU*Math.cos(direction)/length),
@@ -187,6 +191,7 @@ public final class WaveRenderer {
     }
 
     public static void end() {
+        WaveDetailRenderer.end();
         if(BINDINGS.isEmpty()) return;
         var binding=BINDINGS.pop();
         if(binding.texture<0) return;
@@ -197,6 +202,7 @@ public final class WaveRenderer {
         GlStateManager._activeTexture(active);
     }
     public static void close() {
+        WaveDetailRenderer.close();
         if(texture!=0) GlStateManager._deleteTexture(texture);
         texture=0; ready=upload=false; pending=heights=null; BINDINGS.clear();
     }

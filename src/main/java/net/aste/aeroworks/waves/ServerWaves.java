@@ -25,7 +25,7 @@ public final class ServerWaves {
     private static final ThreadLocal<WaveBuoyancyStep> STEP=ThreadLocal.withInitial(WaveBuoyancyStep::new);
     private static final ThreadLocal<BlockWaveStep> BLOCK_STEP=ThreadLocal.withInitial(BlockWaveStep::new);
     private static final ThreadLocal<Entry> CURRENT=new ThreadLocal<>();
-    private record Column(long tick,float height){}
+    private record Column(long tick,float height,float depth){}
     private static final class Entry {
         ServerSubLevel body;long seen,lastBuilt;volatile long ready=-1;
         int centerX,centerZ,size;double fade;boolean queued;
@@ -41,10 +41,10 @@ public final class ServerWaves {
     }
     private static final class Job {
         final Entry entry;final int x,z,size,cx,cz;final double fade;
-        final float[] heights;int cursor;
+        final float[] heights,depths;int cursor;
         Job(Entry e,int cx,int cz,int size,double fade){
             entry=e;this.cx=cx;this.cz=cz;this.size=size;this.fade=fade;
-            x=cx-(size-1)*2;z=cz-(size-1)*2;heights=new float[size*size];
+            x=cx-(size-1)*2;z=cz-(size-1)*2;heights=new float[size*size];depths=new float[size*size];
         }
     }
     private static final class World {
@@ -82,7 +82,7 @@ public final class ServerWaves {
         double partial=physics!=null&&physics.getLevel()==level?physics.getPartialPhysicsTick():0;
         double ticks=level.getGameTime()+partial;
         double gain=entry==null||entry.ready<0?0:WaveMath.smooth((ticks-entry.ready)/20.0);
-        STEP.get().begin(WavePhysicsConfig.current(),entry==null?null:entry.patch,ticks/20.0,gain);
+        STEP.get().begin(WavePhysicsConfig.current(),entry==null?null:entry.patch,ticks/20.0,gain,WaveWindStates.current(level));
         CURRENT.set(entry);
         if(entry!=null){
             entry.body=body;entry.seen=level.getGameTime();entry.applies++;
@@ -113,7 +113,7 @@ public final class ServerWaves {
         double ticks=body.getLevel().getGameTime()+(physics==null?0:physics.getPartialPhysicsTick());
         double gain=e.ready<0?0:WaveMath.smooth((ticks-e.ready)/20.0);
         var step=BLOCK_STEP.get();
-        step.calculate(e.blocks,e.patch,p,body.logicalPose(),center,ticks/20.0,gain,dt);
+        step.calculate(e.blocks,e.patch,p,body.logicalPose(),center,ticks/20.0,gain,dt,WaveWindStates.current(body.getLevel()));
         e.blockSamples=step.samples;e.blockChanges=step.changed;
         if(step.impulse.lengthSquared()+step.torque.lengthSquared()>1e-18)
             handle.applyLinearAndAngularImpulse(step.impulse,step.torque,true);
@@ -167,9 +167,10 @@ public final class ServerWaves {
         var p=WavePhysicsConfig.current();
         for(var level:event.getServer().getAllLevels()){
             long tick=level.getGameTime();
+            WaveWindStates.update(level);
             if(tick%20==0)for(var player:level.players())
                 PacketDistributor.sendToPlayer(player,new WaveStatePayload(level.dimension().location(),p,WaveNetwork.REVISION,
-                        diagnostics(level,player.getX(),player.getY(),player.getZ())));
+                        diagnostics(level,player.getX(),player.getY(),player.getZ()),WaveWindStates.current(level).around(player.getX(),player.getZ())));
             if(p.enabled()&&p.buoyancy()&&p.amplitude()>0){
                 var container=SubLevelContainer.getContainer(level);
                 if(container!=null)for(var body:container.getAllSubLevels())register(level,body,true);
@@ -196,18 +197,19 @@ public final class ServerWaves {
                     int x=job.x+job.cursor%job.size*4,z=job.z+job.cursor/job.size*4;
                     long key=((long)x<<32)^(z&0xffffffffL);var column=state.columns.get(key);
                     if(column==null||tick-column.tick>40){
-                        column=new Column(tick,WaveTerrain.cell(level,x,z,state.pos));state.columns.put(key,column);queries++;
+                        float h=WaveTerrain.cell(level,x,z,state.pos);
+                        column=new Column(tick,h,WaveTerrain.depth(level,x,z,h));state.columns.put(key,column);queries++;
                     }
-                    job.heights[job.cursor++]=column.height;
+                    job.heights[job.cursor]=column.height;job.depths[job.cursor++]=column.depth;
                 }
                 if(job.cursor==job.heights.length){
-                    var patch=new WaveShorePatch(job.x,job.z,job.size,job.heights,job.fade);
+                    var patch=new WaveShorePatch(job.x,job.z,job.size,job.heights,job.depths,job.fade);
                     if(e.ready<0)e.ready=tick;
                     e.patch=patch;e.centerX=job.cx;e.centerZ=job.cz;e.size=job.size;e.fade=job.fade;e.lastBuilt=tick;e.queued=false;
                 }else state.jobs.addLast(job);
             }
         }
     }
-    @SubscribeEvent public static void unload(LevelEvent.Unload e){if(e.getLevel() instanceof ServerLevel s)WORLDS.remove(s);}
-    @SubscribeEvent public static void stop(ServerStoppedEvent e){WORLDS.clear();STEP.remove();BLOCK_STEP.remove();CURRENT.remove();}
+    @SubscribeEvent public static void unload(LevelEvent.Unload e){if(e.getLevel() instanceof ServerLevel s){WORLDS.remove(s);WaveWindStates.unload(s);}}
+    @SubscribeEvent public static void stop(ServerStoppedEvent e){WORLDS.clear();WaveWindStates.clear();STEP.remove();BLOCK_STEP.remove();CURRENT.remove();}
 }

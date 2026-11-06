@@ -196,3 +196,49 @@ for degrees in [0,37,81]:
 render_mask(.47,math.pi/2,mask_enabled=False)
 render_mask(.47,-math.pi/2,empty=True)
 print('Original Deep Seas mask: rotated fractional hull edges, crest/trough, no mask/empty mask and units 7/8/9 verified with real Sodium water on GPU')
+
+# Exercise the detailed height function itself against CPU fixtures, so shore vertices,
+# air-cell buoyancy and solid-block buoyancy cannot quietly use different spectra.
+vertex='#version 330 core\n'+wave+'''
+uniform vec3 testPosition;
+uniform float testDepth;
+out vec3 result;
+void main(){result=vec3(0,aste_waveHeight(testPosition.xz,testDepth),0);gl_Position=vec4(0,0,0,1);}
+'''
+program=create_program();attach(program,shader(0x8B31,vertex));feedback(program,1,names,0x8C8C);link(program)
+program_iv(program,0x8B82,C.byref(ok));program_log(program,len(log),None,log)
+assert ok.value,log.value.decode()
+use(program);enable(0x8C89)
+bind_vao(vao);bind_buffer(0x8C8E,buffer);buffer_data(0x8C8E,12,None,0x88E9);bind_base(0x8C8E,0,buffer)
+u3i=bind(gl,'glUniform3i',None,I,I,I,I);u1ui=bind(gl,'glUniform1ui',None,I,U)
+u1f(loc('aste_WaveDetailed'),1);u4f(loc('aste_WaveDetail'),16,.2,.65,.35)
+u1ui(loc('aste_WaveSeed'),0x12345678)
+wind_tex=U();gen_tex(1,C.byref(wind_tex));active_tex(0x84C6);bind_tex(0x0DE1,wind_tex)
+tex_param(0x0DE1,0x2801,0x2600);tex_param(0x0DE1,0x2800,0x2600);u1i(loc('aste_WaveWind'),6)
+def spectrum_band(name,cx,cz,t,length,speed,angle):
+    k=2*math.pi/length
+    phase=math.remainder(k*(cx*math.cos(angle)+cz*math.sin(angle)-speed*t),2*math.pi)
+    u4f(loc(name),k*math.cos(angle),k*math.sin(angle),phase,.5 if name=='aste_WaveProfile' else 0)
+def spectrum_noise(band,cx,cz,t,scale,period):
+    x,z,v=cx/scale,cz/scale,t/period
+    ix,iz,it=math.floor(x),math.floor(z),math.floor(v)
+    u4f(loc('aste_WaveNoise'+band),x-ix,z-iz,v-it,1/scale)
+    u3i(loc('aste_WaveNoiseOrigin'+band),ix,iz,it)
+maximum_error=0
+for row in Path('build/wave-test/spectrum.txt').read_text().splitlines():
+    cx,cz,px,pz,t,ratio,depth,expected=map(float,row.split())
+    data=(F*(11*11*4))()
+    for i in range(11*11):data[i*4],data[i*4+1],data[i*4+2],data[i*4+3]=ratio,ratio,-10,1
+    tex_image(0x0DE1,0,0x8814,11,11,0,0x1908,0x1406,data)
+    ox,oz=(math.floor(cx/64)-5)*64,(math.floor(cz/64)-5)*64
+    u3f(loc('aste_WaveWindGrid'),cx-ox,cz-oz,0)
+    spectrum_band('aste_WaveProfile',cx,cz,t,32,4,math.radians(35))
+    spectrum_band('aste_WaveChopA',cx,cz,t,8,4*1.7,math.radians(35)+.7)
+    spectrum_band('aste_WaveChopB',cx,cz,t,8/1.37,4*1.7*.83,math.radians(35)-1.1)
+    spectrum_noise('A',cx,cz,t,48,24);spectrum_noise('B',cx,cz,t,48*.35,24*.23)
+    u3f(loc('testPosition'),px,0,pz);u1f(loc('testDepth'),depth)
+    begin_tf(0);draw(0,0,1);end_tf();out=(F*3)();get_buffer(0x8C8E,0,12,out)
+    assert error()==0
+    difference=abs(out[1]-expected);maximum_error=max(maximum_error,difference)
+    assert difference<3e-5,(row,out[1],difference)
+print(f'Detailed wave spectrum: 64 CPU/GPU matches, weak/storm wind, depth, noisy chop and distant/negative coordinates; maximum error {maximum_error:.2g}')

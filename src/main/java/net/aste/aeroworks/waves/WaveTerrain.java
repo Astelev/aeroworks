@@ -31,6 +31,12 @@ public final class WaveTerrain {
         for(int d=1;d<=2;d++)if(!terrainState(chunk,x,y-d,z).getFluidState().is(FluidTags.WATER))return ShoreField.DRY;
         return y;
     }
+    public static float depth(Level level,int x,int z,float waterBlockY){
+        if(waterBlockY==ShoreField.DRY)return 0;
+        var chunk=level instanceof ServerLevel server?server.getChunkSource().getChunkNow(x>>4,z>>4)
+                :level.getChunkSource().getChunk(x>>4,z>>4,ChunkStatus.FULL,false);
+        return chunk==null?0:Math.clamp(waterBlockY-chunk.getHeight(Heightmap.Types.OCEAN_FLOOR,x&15,z&15),0,128);
+    }
     /** Deep Seas masks LevelChunk block reads inside hulls. Shorelines need physical terrain,
      * not that moving air pocket; section palettes are also its own realBlockState source. */
     private static BlockState terrainState(ChunkAccess chunk,int x,int y,int z){

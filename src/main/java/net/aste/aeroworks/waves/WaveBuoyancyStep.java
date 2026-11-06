@@ -3,7 +3,8 @@ package net.aste.aeroworks.waves;
 /** One reusable context per physics thread. The native loop supplies its existing affine transforms. */
 public final class WaveBuoyancyStep {
     private WaveShorePatch shore;
-    private double amplitude,kx,kz,phase;
+    private double amplitude;
+    private final WaveSpectrum spectrum=new WaveSpectrum();
     private double ox,oz,xx,xz,yx,yz,zx,zz;
     private int transforms;
     private boolean observe;
@@ -14,11 +15,13 @@ public final class WaveBuoyancyStep {
     public boolean observing(){return observe;}
     public Observation observation(){return new Observation(samples,weighted,changed,maximumOffset);}
     public void begin(WaveParameters p,WaveShorePatch patch,double seconds,double gain){
+        begin(p,patch,seconds,gain,WaveWindGrid.EMPTY);
+    }
+    public void begin(WaveParameters p,WaveShorePatch patch,double seconds,double gain,WaveWindGrid wind){
+        spectrum.begin(p,wind,seconds);
         shore=p.enabled()&&p.buoyancy()&&p.amplitude()>0?patch:null;
         transforms=0;amplitude=p.amplitude()*gain;observe=false;
-        kx=WaveMath.TAU*Math.cos(p.radians())/p.wavelength();
-        kz=WaveMath.TAU*Math.sin(p.radians())/p.wavelength();
-        phase=Math.IEEEremainder(-WaveMath.TAU*p.speed()*seconds/p.wavelength(),WaveMath.TAU);
+
     }
     public void transform(double x,double z){
         switch(transforms++){
@@ -35,7 +38,7 @@ public final class WaveBuoyancyStep {
         double wx=ox+xx*x+yx*y+zx*z,wz=oz+xz*x+yz*y+zz*z;
         double weight=shore.weight(wx,wz,waterBlockY);
         if(weight==0)return nativeDepth;
-        double offset=amplitude*weight*WaveMath.fastSin(kx*wx+kz*wz+phase);
+        double offset=spectrum.height(wx,wz,shore.depth(wx,wz))*weight*(amplitude/spectrum.amplitude());
         if(observe){
             weighted++;maximumOffset=Math.max(maximumOffset,Math.abs(offset));
             if(Math.abs(Math.clamp(nativeDepth+offset,0,1)-Math.clamp(nativeDepth,0,1))>1e-8)changed++;
