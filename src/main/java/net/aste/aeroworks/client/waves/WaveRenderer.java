@@ -28,13 +28,13 @@ import org.lwjgl.opengl.GL33C;
 /** Native Sodium water vertices, with Deep Seas' original fragment clipping intact. */
 @EventBusSubscriber(modid=Aeroworks.MODID, value=Dist.CLIENT)
 public final class WaveRenderer {
-    private static final int SIZE=129, STEP=4, UNIT=7, BUDGET=512;
+    private static final int MAX_SIZE=129, STEP=4, UNIT=7, BUDGET=512;
     private static final ArrayDeque<Binding> BINDINGS=new ArrayDeque<>();
     private static final BlockPos.MutableBlockPos POS=new BlockPos.MutableBlockPos();
     private static ClientLevel level;
     private static float[] heights, depths, pending;
     private static int cursor, buildX, buildZ, originX, originZ, texture;
-    private static int nextX, nextZ;
+    private static int buildSize, nextSize, nextX, nextZ;
     private static boolean ready, upload;
     private static float partial;
     private static long nextRefresh;
@@ -70,7 +70,7 @@ public final class WaveRenderer {
         if(!WaveShader.attached) return "terrain vertex shader not recognized";
         if(!rendererSeen) return "terrain renderer hook not called";
         if(!uniformSeen) return "wave uniform absent from terrain program";
-        if(!ready && !upload) return "building water field "+cursor+"/"+(SIZE*SIZE);
+        if(!ready && !upload) return "building water field "+cursor+"/"+(buildSize*buildSize);
         if(wetCells==0) return "no eligible surface water in loaded chunks";
         if(waveCells==0) return "water found, shore/shallow/unloaded boundary suppressed waves";
         if(WaveClientState.current(level).amplitude()==0) return "amplitude is zero";
@@ -96,28 +96,34 @@ public final class WaveRenderer {
         }
         if(level==null || mc.player==null || mc.isPaused() || !WaveConfig.ENABLED.get()
                 || !ModList.get().isLoaded("sodium") || shaderPack() || !WaveClientState.current(level).enabled()) return;
+        int distance=WaveConfig.RENDER_DISTANCE.get();
+        float shoreFade=(float)WaveClientState.current(level).shoreFade();
+        // Leave room for the shore-distance transform and for movement during a budgeted rebuild.
+        int size=Math.min(MAX_SIZE,2*(int)Math.ceil((distance+shoreFade+48)/STEP)+1);
+        if(heights!=null&&buildSize!=size)heights=depths=null;
         if(heights==null) {
-            if(level.getGameTime()<nextRefresh) return;
-            buildX=Math.floorDiv(mc.player.getBlockX(),32)*32-(SIZE-1)*STEP/2;
-            buildZ=Math.floorDiv(mc.player.getBlockZ(),32)*32-(SIZE-1)*STEP/2;
-            heights=new float[SIZE*SIZE];depths=new float[SIZE*SIZE];
+            if(buildSize==size&&level.getGameTime()<nextRefresh) return;
+            buildSize=size;
+            buildX=Math.floorDiv(mc.player.getBlockX(),32)*32-(buildSize-1)*STEP/2;
+            buildZ=Math.floorDiv(mc.player.getBlockZ(),32)*32-(buildSize-1)*STEP/2;
+            heights=new float[buildSize*buildSize];depths=new float[buildSize*buildSize];
             Arrays.fill(heights,ShoreField.DRY); cursor=0;
         }
         for(int budget=0; budget<BUDGET && cursor<heights.length;budget++,cursor++) {
-            int x=buildX+(cursor%SIZE)*STEP, z=buildZ+(cursor/SIZE)*STEP;
+            int x=buildX+(cursor%buildSize)*STEP, z=buildZ+(cursor/buildSize)*STEP;
             float h=WaveTerrain.cell(level,x,z,POS);
             heights[cursor]=h;depths[cursor]=WaveTerrain.depth(level,x,z,h);
         }
         if(cursor==heights.length) {
-            var shore=ShoreField.build(heights,SIZE,STEP,(float)WaveClientState.current(level).shoreFade());
-            pending=new float[SIZE*SIZE*4];
+            var shore=ShoreField.build(heights,buildSize,STEP,shoreFade);
+            pending=new float[buildSize*buildSize*4];
             for(int i=0;i<heights.length;i++){pending[i*4]=shore[i*2];pending[i*4+1]=shore[i*2+1];pending[i*4+2]=depths[i];}
             wetCells=waveCells=0; fieldCount++;
             for(int i=0;i<heights.length;i++) {
                 if(heights[i]!=ShoreField.DRY) wetCells++;
                 if(pending[i*4+1]>.001f) waveCells++;
             }
-            nextX=buildX; nextZ=buildZ; upload=true; heights=depths=null;
+            nextSize=buildSize; nextX=buildX; nextZ=buildZ; upload=true; heights=depths=null;
             nextRefresh=level.getGameTime()+8;
         }
     }
@@ -166,7 +172,7 @@ public final class WaveRenderer {
         GlStateManager._bindTexture(texture);
         GL33C.glBindSampler(UNIT,0);
         if(upload) {
-            GL33C.glTexImage2D(GL33C.GL_TEXTURE_2D,0,GL33C.GL_RGBA32F,SIZE,SIZE,0,GL33C.GL_RGBA,GL33C.GL_FLOAT,pending);
+            GL33C.glTexImage2D(GL33C.GL_TEXTURE_2D,0,GL33C.GL_RGBA32F,nextSize,nextSize,0,GL33C.GL_RGBA,GL33C.GL_FLOAT,pending);
             GL33C.glTexParameteri(GL33C.GL_TEXTURE_2D,GL33C.GL_TEXTURE_MIN_FILTER,GL33C.GL_LINEAR);
             GL33C.glTexParameteri(GL33C.GL_TEXTURE_2D,GL33C.GL_TEXTURE_MAG_FILTER,GL33C.GL_LINEAR);
             GL33C.glTexParameteri(GL33C.GL_TEXTURE_2D,GL33C.GL_TEXTURE_WRAP_S,GL33C.GL_CLAMP_TO_EDGE);
@@ -180,6 +186,9 @@ public final class WaveRenderer {
         WaveDetailRenderer.bind(program,level,camera,profile,seconds);
         GL33C.glUniform1f(loc(program,"aste_FoamStrength"),WaveConfig.FOAM.get()?WaveConfig.FOAM_STRENGTH.get().floatValue():0);
         GL33C.glUniform2f(loc(program,"aste_FoamOrigin"),(float)(camera.x-Math.floor(camera.x/256)*256),(float)(camera.z-Math.floor(camera.z/256)*256));
+        int distance=WaveConfig.RENDER_DISTANCE.get();
+        float fadeStart=distance-Math.min(24,distance*.25f);
+        GL33C.glUniform2f(loc(program,"aste_WaveRange"),fadeStart*fadeStart,distance*distance);
         GL33C.glUniform1i(loc(program,"aste_WaveShore"),UNIT);
         GL33C.glUniform3f(loc(program,"aste_WaveGrid"),(float)(camera.x-originX),(float)(camera.z-originZ),(float)camera.y);
         GL33C.glUniform4f(loc(program,"aste_WaveProfile"),(float)(WaveMath.TAU*Math.cos(direction)/length),

@@ -63,6 +63,25 @@ def near(a,b): assert abs(a-b)<2e-5,(a,b)
 near(sample(phase=math.pi/2)[1],height+.5)
 near(sample(phase=-math.pi/2)[1],height-.5)
 near(sample(phase=0)[1],height)
+# Keep the same water vertex and vary only its camera-relative distance limits.
+d2=2*256**2+height**2
+u2f(loc('aste_WaveRange'),d2-1000,d2+1000)
+near(sample(phase=math.pi/2)[1],height+.25)
+u2f(loc('aste_WaveRange'),d2-2000,d2-1000)
+near(sample(phase=math.pi/2)[1],height)
+u2f(loc('aste_WaveRange'),d2+1000,d2+2000)
+near(sample(phase=math.pi/2)[1],height+.5)
+u2f(loc('aste_WaveRange'),0,0)
+# A smaller shore texture must sample the same texel centres, without a hardcoded 129.
+small=(F*(17*17*2))()
+small[(8*17+8)*2],small[(8*17+8)*2+1]=10,1
+tex_image(0x0DE1,0,0x8230,17,17,0,0x8227,0x1406,small)
+u3f(loc('aste_WaveGrid'),-224,-224,0)
+near(sample(phase=math.pi/2)[1],height+.5)
+u3f(loc('aste_WaveGrid'),0,0,0)
+field(1)
+print('Visual wave range: full displacement, smooth fade, cutoff and resized shore texture verified on GPU')
+
 near(sample(x=0,phase=math.pi/2)[1],height)
 near(sample(x=-1,phase=math.pi/2)[1],height)
 near(sample(y=height-1,phase=math.pi/2)[1],height-1)

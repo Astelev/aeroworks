@@ -56,3 +56,8 @@ Tests track crest positions along a transverse line with amplitude noise/chop di
 `wave-depth-r7` uses wave network protocol **6**. Crest foam in the detailed profile is multiplied by the strong-wind gate (the existing `chop_threshold`) and by actual local wave amplitude after depth and shore attenuation. Below 0.18 blocks of amplitude there is no foam; it fades fully in by 0.4 blocks. Weak wind and shallow storm ripples therefore retain their native water tint. The legacy uniform-sine mode uses amplitude alone because it has no wind-energy gate.
 
 New common setting `detail.depth_range_multiplier` defaults to **3**, widening the depth response even for existing configs with `full_depth=16`. Effective full-strength depth is `min(128, full_depth * depth_range_multiplier)`, default **48 blocks**. Smoothstep amplitudes relative to deep water are about **7% at 8 blocks, 26% at 16, 50% at 24, 74% at 32 and 100% at 48**; wind energy and shore fade multiply these values. Set the multiplier to 1 to restore the former depth span. The shader and both buoyancy paths use the same effective depth, with no additional terrain queries.
+
+
+## Client wave range
+
+`wave_render_distance` in `aste_aeroworks-waves-client.toml` defaults to **96 blocks** (16–256). Surface displacement and crest foam fade near the 3D camera-distance boundary. Beyond it, the vertex shader skips shore and wind texture reads and the wave spectrum. The client shore grid shrinks with the distance setting, retaining padding for shore fade and movement. Server buoyancy and the Deep Seas hull mask do not use this setting; no network protocol change is required.

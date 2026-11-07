@@ -7,6 +7,7 @@ uniform vec4 aste_WaveStill;
 uniform vec4 aste_WaveFlow;
 uniform vec4 aste_WaveOverlay;
 uniform float aste_WaveEnabled;
+uniform vec2 aste_WaveRange; // squared fade start and cutoff, in camera-relative space
 uniform float aste_FoamStrength;
 uniform vec2 aste_FoamOrigin;
 out float v_asteWaveFoam;
@@ -87,17 +88,27 @@ vec3 aste_wavePosition(vec3 p, vec2 uv) {
     if (aste_WaveEnabled < 0.5) return p;
     if (!(aste_waveSprite(uv, aste_WaveStill) || aste_waveSprite(uv, aste_WaveFlow)
           || aste_waveSprite(uv, aste_WaveOverlay))) return p;
+    float distance2=dot(p,p);
+    float rangeFade=1.0;
+    if(aste_WaveRange.y>0.0) {
+        // Beyond the cutoff, do not fetch shore/wind textures or evaluate the spectrum.
+        if(distance2>=aste_WaveRange.y)return p;
+        rangeFade=1.0-smoothstep(aste_WaveRange.x,aste_WaveRange.y,distance2);
+    }
     vec2 cell = (p.xz + aste_WaveGrid.xy) / 4.0;
-    if (any(lessThan(cell, vec2(0))) || any(greaterThan(cell, vec2(128)))) return p;
+    vec2 size=vec2(textureSize(aste_WaveShore,0));
+    vec2 last=size-1.0;
+    if (any(lessThan(cell, vec2(0))) || any(greaterThan(cell,last))) return p;
     // Interpolate weight, but never interpolate water heights across separate lakes.
-    vec4 field = texture(aste_WaveShore, (cell + 0.5) / 129.0);
+    vec4 field = texture(aste_WaveShore, (cell + 0.5) / size);
     float waterBlockY = texelFetch(aste_WaveShore, ivec2(floor(cell + 0.5)), 0).r;
     float top = p.y + aste_WaveGrid.z - waterBlockY;
     // Source water tops are usually 8/9-.001, but other meshers can use 1.0.
     // Keep the bottom/lower blocks fixed; animate only the upper edge of surface water.
     if (top < 0.75 || top > 1.04) return p;
-    float edge = min(min(cell.x, cell.y), min(128.0 - cell.x, 128.0 - cell.y));
-    float weight = field.g * smoothstep(0.0, 8.0, edge);
+    float edge = min(min(cell.x, cell.y), min(last.x - cell.x, last.y - cell.y));
+    float weight = field.g * smoothstep(0.0, 8.0, edge)*rangeFade;
+    if(weight<=0.0)return p;
     float height=aste_waveHeight(p.xz,field.b);
     float crest=smoothstep(0.45,0.92,height/max(0.001,aste_WaveProfile.w*aste_waveEnergy));
     float agitation=aste_WaveDetailed>0.5?aste_waveStorm:1.0;
