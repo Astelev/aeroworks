@@ -14,6 +14,14 @@ public final class DeepSeasTargetsTest {
         String hash=java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(Path.of(args[0]))));
         if(!hash.equals("fc7b9c6023978e9d31c901f532c5e54d1d13e0f2431c20b5919b2a3368ad9c08"))throw new AssertionError("Deep Seas JAR differs from attached 3.4.7: "+hash);
         try(var jar=new JarFile(args[0])){
+            // A sealed ship is a render/interaction air pocket, never a new shoreline.
+            var chunkMask=entry(jar,"com/maxenonyme/createsubmarine/submarine/mixin/LevelChunkMixin");
+            var tracker=entry(jar,"com/maxenonyme/createsubmarine/submarine/compartment/CompartmentTracker");
+            if(chunkMask.methods.stream().noneMatch(m->calls(m,tracker.name,"getLiedBlockState")>0))
+                throw new AssertionError("Recheck Deep Seas masked chunk read contract");
+            var real=method(tracker,"realBlockState","(Lnet/minecraft/world/level/chunk/ChunkAccess;Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;");
+            if(calls(real,"net/minecraft/world/level/chunk/LevelChunkSection","getBlockState")!=1)
+                throw new AssertionError("Recheck Deep Seas physical terrain read contract");
             var manager=entry(jar,"com/maxenonyme/highseas/wind/WindManager");
             String result="Lcom/maxenonyme/highseas/wind/WindSample;";
             method(manager,"getWind","(Lnet/minecraft/world/level/Level;DDD)"+result);
@@ -39,6 +47,16 @@ public final class DeepSeasTargetsTest {
             var n=read(DeepSeasTargetsTest.class.getClassLoader().getResourceAsStream("net/aste/aeroworks/compat/deepseas/"+name+".class"));
             for(var m:n.methods)for(var i:m.instructions)if(i instanceof MethodInsnNode c&&(c.owner.startsWith("com/maxenonyme/")||c.owner.startsWith("net/minecraft/client/")))throw new AssertionError("Optional/side dependency leak: "+c.owner);
         }
+        var terrain=read(DeepSeasTargetsTest.class.getClassLoader().getResourceAsStream("net/aste/aeroworks/waves/WaveTerrain.class"));
+        int rawReads=0;
+        for(var m:terrain.methods)for(var i:m.instructions)if(i instanceof MethodInsnNode c){
+            if((c.name.equals("getBlockState")||c.name.equals("getFluidState"))
+                    && !c.owner.equals("net/minecraft/world/level/chunk/LevelChunkSection")
+                    && !c.owner.equals("net/minecraft/world/level/block/state/BlockState"))
+                throw new AssertionError("Wave shoreline must not read Deep Seas' masked world/chunk state: "+c.owner);
+            if(c.owner.equals("net/minecraft/world/level/chunk/LevelChunkSection")&&c.name.equals("getBlockState"))rawReads++;
+        }
+        if(rawReads!=1)throw new AssertionError("Shoreline needs a physical section palette read");
         var worlds=read(DeepSeasTargetsTest.class.getClassLoader().getResourceAsStream("net/aste/aeroworks/wind/WindWorlds.class"));
         var sampler=worlds.methods.stream().filter(m->m.name.equals("sample")).findFirst().orElseThrow();
         if(calls(sampler,"net/aste/aeroworks/wind/WindWeatherGrid","lookup")!=1)

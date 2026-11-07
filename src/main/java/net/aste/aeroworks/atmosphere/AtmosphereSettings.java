@@ -6,7 +6,6 @@ import net.aste.aeroworks.Aeroworks;
 import net.aste.aeroworks.Config;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
-import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.config.ModConfigEvent;
 
 /** Immutable snapshot for the physics path: no config reads, parsing or allocations per surface. */
@@ -20,8 +19,7 @@ public final class AtmosphereSettings {
     public static void reloading(ModConfigEvent.Reloading event) { reload(event); }
 
     private static void reload(ModConfigEvent event) {
-        if (!event.getConfig().getModId().equals(Aeroworks.MODID)
-                || event.getConfig().getType() != ModConfig.Type.COMMON) return;
+        if (event.getConfig().getSpec() != Config.SPEC) return;
         AtmosphereProfile profile;
         try {
             profile = new AtmosphereProfile(Config.ATMOSPHERE_REFERENCE_HEIGHT.get(),

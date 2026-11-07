@@ -315,7 +315,7 @@ public class Config {
                 .defineInRange("wind_reference_speed",9.0,.1,1000.0);
         BUILDER.pop();
     }
-    static final ModConfigSpec SPEC = BUILDER.build();
+    public static final ModConfigSpec SPEC = BUILDER.build();
 
     private static boolean validateItemName(final Object obj) {
         return obj instanceof String itemName && BuiltInRegistries.ITEM.containsKey(ResourceLocation.parse(itemName));
