@@ -1,6 +1,7 @@
 package net.aste.aeroworks.compat.deepseas;
 
 import java.util.*;
+import net.aste.aeroworks.compat.atmospheric.AtmosphericWind;
 import java.util.function.BiConsumer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.companion.math.BoundingBox3d;
@@ -53,6 +54,11 @@ public final class DeepSeasWind {
         if(level!=clientLevel||packet==null||level.getGameTime()<received||level.getGameTime()-received>40)return Vec3.ZERO;
         var state=body==null?null:clientBodies.get(body.getUniqueId());
         if(state!=null)return nativeUnits(new Vec3(state.x(),0,state.z()),packet.reference());
+        if(AtmosphericWind.present() && packet.dynamic()) {
+            if(!packet.enabled())return Vec3.ZERO;
+            var v=new Vector3d();AtmosphericWind.read(level,x,y,z,v);
+            return nativeUnits(new Vec3(v.x,0,v.z),packet.reference());
+        }
         var out=new Vector3d();packet.ambient((level.getGameTime()-received)/20.0,x,y,z,out);
         return nativeUnits(new Vec3(out.x,0,out.z),packet.reference());
     }
@@ -110,7 +116,7 @@ public final class DeepSeasWind {
             }
             var fallback=ambient(level,pos.x,pos.y,pos.z);
             PacketDistributor.sendToPlayer(player,new DeepSeasWindPayload(level.dimension().location(),level.getGameTime()/20.0,
-                settings.enabled(),settings.dynamic()&&WindFields.usesDefault(),clock.seed(),clock.phase(),clock.rate(),settings.field(),
+                settings.enabled(),(settings.dynamic()||AtmosphericWind.present())&&WindFields.usesDefault(),clock.seed(),clock.phase(),clock.rate(),settings.field(),
                 Config.DEEP_SEAS_WIND_REFERENCE.get(),fallback.x,fallback.z,weather,bodies));
         }
     }

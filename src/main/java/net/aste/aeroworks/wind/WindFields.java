@@ -24,7 +24,7 @@ public final class WindFields {
         var config=WindSettings.current();
         var field=provider;
         if (config.enabled()) {
-            if(field==DEFAULT && config.dynamic()) WindWorlds.sample(sample,config.field(),result,torque);
+            if(field==DEFAULT && (config.dynamic() || net.aste.aeroworks.compat.atmospheric.AtmosphericWind.present())) WindWorlds.sample(sample,config.field(),result,torque);
             else field.sample(sample,result);
         }
         if (!Double.isFinite(result.x) || !Double.isFinite(result.y) || !Double.isFinite(result.z)) result.zero();

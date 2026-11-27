@@ -164,6 +164,7 @@ public final class ServerWaves {
 
     @SubscribeEvent(priority=EventPriority.LOWEST)
     public static void tick(ServerTickEvent.Post event){
+        if(net.aste.aeroworks.compat.atmospheric.AtmosphericWind.present())return;
         var p=WavePhysicsConfig.current();
         for(var level:event.getServer().getAllLevels()){
             long tick=level.getGameTime();

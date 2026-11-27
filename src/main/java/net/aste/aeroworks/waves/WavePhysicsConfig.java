@@ -33,7 +33,7 @@ public final class WavePhysicsConfig {
         b.pop();
         SPEC=b.build();
     }
-    public static WaveParameters current(){return current;}
+    public static WaveParameters current(){return net.aste.aeroworks.compat.atmospheric.AtmosphericWind.present()?WaveParameters.CALM:current;}
     public static void loading(ModConfigEvent.Loading e){update(e);}
     public static void reloading(ModConfigEvent.Reloading e){update(e);}
     private static void update(ModConfigEvent e){
