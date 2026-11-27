@@ -17,6 +17,7 @@ float aste_waveStorm;
 
 // CPU counterpart: WaveSpectrum / WaveShape. Integer hash is identical on both sides.
 uniform float aste_WaveDetailed;
+uniform float aste_WaveStormAmplitude;
 uniform float aste_WaveWarp; // horizontal distortion in blocks
 uniform vec4 aste_WaveDetail; // full depth, noise strength, chop threshold, chop fraction
 uniform vec4 aste_WaveChopA; // kx, kz, camera/time phase, unused
@@ -79,6 +80,9 @@ float aste_waveHeight(vec2 p,float depth) {
     }
     float gate=smoothstep(aste_WaveDetail.z,1.0,ratio),chop=0.0;
     aste_waveStorm=gate;
+    float stormBoost=mix(1.0,max(1.0,aste_WaveStormAmplitude),gate);
+    energy*=stormBoost;
+    aste_waveEnergy=energy;
     float crossPhase=dot(p+warp,aste_WaveCross.xy)+aste_WaveCross.z+1.73;
     float spread=aste_WaveCross.w;
     float packet=1.0-spread*0.22+spread*0.22*cos(crossPhase);

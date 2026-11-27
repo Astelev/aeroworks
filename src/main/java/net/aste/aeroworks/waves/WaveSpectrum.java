@@ -40,6 +40,6 @@ public final class WaveSpectrum {
             chop=(.7*WaveMath.fastSin(ax*x+az*z+ap+ax*warpX+az*warpZ+1.8*jitter)+.3*WaveMath.fastSin(bx*x+bz*z+bp+bx*warpX+bz*warpZ-1.2*jitter))
                     *(.55+.45*jitter)*d.chopFraction()*gate;
         }
-        return p.amplitude()*energy*(main+chop);
+        return p.amplitude()*energy*(1+(d.stormAmplitudeMultiplier()-1)*gate)*(main+chop);
     }
 }
