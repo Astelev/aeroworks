@@ -38,7 +38,7 @@ public final class AtmosphericWind {
         var world=WORLDS.get(sample.level());
         var reading=world==null?null:world.readings.get(sample.bodyId());
         if(reading!=null && sample.timeSeconds()*20-reading.tick()<=40
-                && sample.timeSeconds()*20>=reading.tick()) {
+                && sample.timeSeconds()*20>=reading.tick()-1) {
             out.set(reading.x(),reading.y(),reading.z());
         } else if(sample.bodyId()<0 && sample.level()!=null && sample.level().getServer().isSameThread()) {
             // Ambient tools on the server thread can query their exact position.
@@ -83,7 +83,8 @@ public final class AtmosphericWind {
         var out=new Vector3d();
         for(int offset=0;offset<size;offset++) {
             int index=(start+offset)%size;
-            if(!(all.get(index) instanceof ServerSubLevel body)||body.isRemoved())continue;
+            var body=all.get(index);
+            if(body.isRemoved())continue;
             var old=world.readings.get(body.getRuntimeId());
             if(old!=null&&(!old.id().equals(body.getUniqueId())||old.tick()>tick))old=null;
             if((old==null||tick-old.tick()>=5)&&reads<16) {
