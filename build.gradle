@@ -414,3 +414,11 @@ def testAtmosphericCompat = tasks.register('testAtmosphericCompat', JavaExec) {
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
 }
 tasks.named('check') { dependsOn testAtmosphericCompat }
+
+def testLoadedWaveBlockView = tasks.register('testLoadedWaveBlockView', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.waves.LoadedWaveBlockViewTest'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testLoadedWaveBlockView }
