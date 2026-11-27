@@ -8,7 +8,11 @@
     "client.CloudFogFrameMixin",
     "client.CloudFogProjectionMixin",
     "client.CloudFogDhMixin",
-    "client.WeatherRendererInvoker"
+    "client.WeatherRendererInvoker",
+    "client.WaveShaderMixin",
+    "client.WaveRendererMixin",
+    "rain.CloudRainWorldMixin",
+    "rain.CloudRainQuadMixin"
   ],
   "injectors": {
     "defaultRequire": 1
@@ -21,6 +25,11 @@
     "atmosphere.PropellerAtmosphereMixin",
     "failure.KineticFailureMixin",
     "failure.PropellerFailureMixin",
-    "failure.SyncedFailureInvoker"
+    "failure.SyncedFailureInvoker",
+    "deepseas.DeepSeasWindManagerMixin",
+    "deepseas.DeepSeasSailWindMixin",
+    "deepseas.DeepSeasWaveBuoyancyMixin",
+    "waves.SolidWaveBuoyancyMixin",
+    "waves.WaveGeometryMixin"
   ]
 }

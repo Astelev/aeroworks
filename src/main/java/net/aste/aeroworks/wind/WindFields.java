@@ -14,7 +14,7 @@ public final class WindFields {
     private WindFields() {}
     public static void setProvider(WindField field) { provider = Objects.requireNonNull(field); }
     public static void resetProvider() { provider = DEFAULT; }
-    static boolean usesDefault() { return provider == DEFAULT; }
+    public static boolean usesDefault() { return provider == DEFAULT; }
     public static Vector3d sample(WindSample sample, Vector3d result) {
         return sampleForStep(sample,result,null);
     }

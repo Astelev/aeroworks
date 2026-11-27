@@ -27,6 +27,9 @@ sourceSets.main.resources {
 }
 
 repositories {
+    mavenCentral()
+    maven { url='https://api.modrinth.com/maven'; content { includeGroup 'maven.modrinth' } }
+    maven { url='https://www.cursemaven.com'; content { includeGroup 'curse.maven' } }
     maven { url = 'https://maven.nonamecrackers2.dev/releases' }
     // Add here additional repositories if required by some of the dependencies below.
 }
@@ -129,7 +132,13 @@ def unpackSableLibraries = tasks.register('unpackSableLibraries', Copy) {
 }
 def sableCompileLibraries = files(fileTree(sableCompileDir) { include '*.jar' }).builtBy(unpackSableLibraries)
 
+configurations { deepSeas; compileOnly.extendsFrom deepSeas }
+configurations { sodiumContract; flightBundle }
 dependencies {
+    sodiumContract('maven.modrinth:sodium:mc1.21.1-0.8.13-neoforge') { transitive=false }
+    testImplementation "org.ow2.asm:asm-tree:9.8"
+    deepSeas 'curse.maven:create-deep-seas-1533137:9601142'
+    flightBundle 'curse.maven:create-aeronautics-676721:9711672'
     compileOnly files(sableJar)
     compileOnly files('libs/create-aeronautics-lift-patch-1.1.0.jar')
     compileOnly sableCompileLibraries
@@ -162,6 +171,24 @@ dependencies {
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
 }
+
+def testWaves=tasks.register('testWaves',JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='net.aste.aeroworks.WaveTest'
+    args configurations.sodiumContract.singleFile.absolutePath, configurations.deepSeas.singleFile.absolutePath, sableJar.absolutePath
+    javaLauncher=javaToolchains.launcherFor { languageVersion=JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testWaves }
+
+def testWavePhysics=tasks.register('testWavePhysics',JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='net.aste.aeroworks.WavePhysicsTest'
+    args configurations.deepSeas.singleFile.absolutePath
+    javaLauncher=javaToolchains.launcherFor { languageVersion=JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testWavePhysics }
 
 // This block of code expands all declared replace properties in the specified resource targets.
 // A missing property will result in an error. Properties are expanded using ${} Groovy notation.
@@ -321,3 +348,59 @@ def testParkingBrakes = tasks.register('testParkingBrakes', JavaExec) {
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
 }
 tasks.named('check') { dependsOn testParkingBrakes }
+
+// Optional Deep Seas contracts: use the exact same JAR as the attached 3.4.8 build.
+['DeepSeasWind','DeepSeasTargets'].each { name ->
+    def task=tasks.register("test${name}",JavaExec){
+        dependsOn tasks.named('testClasses')
+        classpath=sourceSets.test.runtimeClasspath
+        mainClass="net.aste.aeroworks.${name}Test"
+        if(name=='DeepSeasTargets')args configurations.deepSeas.singleFile.absolutePath
+        javaLauncher=javaToolchains.launcherFor {languageVersion=JavaLanguageVersion.of(21)}
+    }
+    tasks.named('check'){dependsOn task}
+}
+
+// Loading a second COMMON config must not invoke readers for the first, still-unloaded spec.
+def testConfigRouting = tasks.register('testConfigRouting', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.ConfigRoutingTest'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testConfigRouting }
+
+def testSolidWaves = tasks.register('testSolidWaves', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.SolidWaveTest'
+    args file('libs/sable-neoforge-1.21.1-2.0.6.jar').absolutePath
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testSolidWaves }
+
+def testWaveSpectrum = tasks.register('testWaveSpectrum', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.WaveSpectrumTest'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testWaveSpectrum }
+
+def testRainOptimization = tasks.register('testRainOptimization', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.RainOptimizationTest'
+    args file('libs/simpleclouds-0.7.3+1.21.1-all.jar').absolutePath
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testRainOptimization }
+
+def verifyFlightBundle = tasks.register('verifyFlightBundle', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.FlightBundleTargetsTest'
+    args configurations.flightBundle.singleFile.absolutePath
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn verifyFlightBundle }

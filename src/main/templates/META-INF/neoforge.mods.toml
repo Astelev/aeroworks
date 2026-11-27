@@ -122,3 +122,10 @@ config="aeroworks.mixins.json"
     versionRange="[1.0.0,)"
     ordering="AFTER"
     side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="create_submarine"
+type="optional"
+versionRange="[3.4.7,3.5)"
+ordering="AFTER"
+side="BOTH"

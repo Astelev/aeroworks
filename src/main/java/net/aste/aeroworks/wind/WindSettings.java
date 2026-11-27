@@ -2,7 +2,6 @@ package net.aste.aeroworks.wind;
 
 import net.aste.aeroworks.Aeroworks;
 import net.aste.aeroworks.Config;
-import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.config.ModConfigEvent;
 
 public final class WindSettings {
@@ -13,8 +12,7 @@ public final class WindSettings {
     public static void loading(ModConfigEvent.Loading event) { reload(event); }
     public static void reloading(ModConfigEvent.Reloading event) { reload(event); }
     private static void reload(ModConfigEvent event) {
-        if (!event.getConfig().getModId().equals(Aeroworks.MODID)
-                || event.getConfig().getType() != ModConfig.Type.COMMON) return;
+        if (event.getConfig().getSpec() != Config.SPEC) return;
         WindParameters p;
         try {
             p = new WindParameters(Config.WIND_ZONE_SIZE.get(), Config.WIND_SURFACE_HEIGHT.get(),

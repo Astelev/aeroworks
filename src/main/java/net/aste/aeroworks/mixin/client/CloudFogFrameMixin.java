@@ -25,5 +25,6 @@ public abstract class CloudFogFrameMixin {
     @Inject(method = "close", at = @At("HEAD"))
     private void aste_aeroworks$closeCloudFog(CallbackInfo ci) {
         CloudFogPostProcess.close();
+        net.aste.aeroworks.client.waves.WaveRenderer.close();
     }
 }
