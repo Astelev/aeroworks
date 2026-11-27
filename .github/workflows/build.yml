@@ -48,5 +48,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: aeroworks-1.0.4
+          name: aeroworks-1.0.5
           path: build/libs/*.jar

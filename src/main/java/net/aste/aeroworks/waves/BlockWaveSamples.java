@@ -13,6 +13,7 @@ public record BlockWaveSamples(double[] cells,boolean complex,double weight) {
     public static final int MAX_SAMPLES=4096;
     static final class Builder {
         final ServerSubLevel body;
+        final LoadedWaveBlockView view;
         final int minX,minY,minZ,sx,sy,sz;
         final long total;
         long cursor,count;
@@ -20,7 +21,7 @@ public record BlockWaveSamples(double[] cells,boolean complex,double weight) {
         final double[] cells=new double[MAX_SAMPLES*4];
         final BlockPos.MutableBlockPos pos=new BlockPos.MutableBlockPos();
         Builder(ServerSubLevel body){
-            this.body=body;var b=body.getPlot().getBoundingBox();
+            this.body=body;this.view=LoadedWaveBlockView.of(body.getLevel());var b=body.getPlot().getBoundingBox();
             minX=b.minX();minY=b.minY();minZ=b.minZ();
             sx=b.width();sy=b.height();sz=b.length();
             total=sx<=0||sy<=0||sz<=0?0:(long)sx*sy*sz;
@@ -37,11 +38,12 @@ public record BlockWaveSamples(double[] cells,boolean complex,double weight) {
             var chunk=body.getLevel().getChunkSource().getChunkNow(x>>4,z>>4);
             if(chunk==null)return; // No loading or generation, including plot storage chunks.
             pos.set(x,y,z);
-            var state=chunk.getSection(chunk.getSectionIndex(y)).getBlockState(x&15,y&15,z&15);
+            int section=chunk.getSectionIndex(y);
+            if(section<0||section>=chunk.getSectionsCount())return;
+            var state=chunk.getSection(section).getBlockState(x&15,y&15,z&15);
             if(state.isAir()||VoxelNeighborhoodState.isLiquid(state))return;
             double volume=PhysicsBlockPropertyHelper.getVolume(state);
             if(!Double.isFinite(volume)||volume<=0)return;
-            var view=body.getPlot().getEmbeddedLevelAccessor();
             var shape=state.getBlock() instanceof BlockSubLevelCollisionShape custom
                     ?custom.getSubLevelCollisionShape(view,state):state.getCollisionShape(view,pos,SableCollisionContext.get());
             if(shape.isEmpty())return;
