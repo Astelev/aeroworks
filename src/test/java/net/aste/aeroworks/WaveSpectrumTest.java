@@ -71,13 +71,34 @@ public final class WaveSpectrumTest {
             check(WaveStatePayload.CODEC.decode(buf).equals(packet)&&buf.readableBytes()==0,"Full detail/wind state roundtrip");
         }finally{buf.release();}
         double mean=0;
-        for(int i=0;i<10000;i++)mean+=WaveShape.crest(Math.sin(i*WaveMath.TAU/10000),1);
-        near(mean/10000,0,1e-9,"Sharp storm profile has no artificial mean water-level shift");
-        near(WaveShape.crest(1,1),1,1e-12,"Storm crest remains amplitude-bounded");
+        for(int i=0;i<10000;i++)mean+=WaveShape.trochoid(i*WaveMath.TAU/10000,1);
+        near(mean/10000,0,2e-6,"Sharp storm profile has no artificial mean water-level shift");
+        near(WaveShape.trochoid(Math.PI/2,1),1,1e-12,"Storm crest remains amplitude-bounded");
         double eps=.01;
-        double sharpCurvature=(1-WaveShape.crest(Math.sin(Math.PI/2+eps),1))/(eps*eps);
-        check(sharpCurvature>.7,"Storm crest is sharper than a sine");
-        near(WaveShape.crest(.4,0),.4,0,"Calm profile unchanged");
+        double sharpCurvature=(1-WaveShape.trochoid(Math.PI/2+eps,1))/(eps*eps);
+        check(sharpCurvature>4,"Storm crest is sharper than a sine");
+        near(WaveShape.trochoid(.4,0),WaveMath.fastSin(.4),0,"Calm profile unchanged");
+        // Trochoids remain finite, periodic, bounded and continuous at the wrapped phase seam.
+        for(double storm:new double[]{0,.2,.7,1})for(int i=0;i<1000;i++) {
+            double phase=i*WaveMath.TAU/1000;
+            double value=WaveShape.trochoid(phase,storm);
+            check(Double.isFinite(value)&&Math.abs(value)<=1+1e-8,"No folded or unbounded crests");
+            near(value,WaveShape.trochoid(phase+WaveMath.TAU,storm),2e-12,"Periodic trochoid");
+        }
+        near(WaveShape.trochoid(-Math.PI/2-1e-7,1),WaveShape.trochoid(-Math.PI/2+1e-7,1),1e-6,"No phase-wrap seam");
+        // With noise and short waves absent, crossing swell must break long uniform crest ridges.
+        var packetProfile=profile(new WaveDetail(true,16,0,48,24,.65,0,.25,1.7,.22));
+        double lowPeak=100,highPeak=-100;
+        for(int cross=-128;cross<=128;cross+=4) {
+            double peak=-100;
+            for(double u=-16;u<=48;u+=.25) {
+                double xx=u*Math.cos(p.radians())-cross*Math.sin(p.radians());
+                double zz=u*Math.sin(p.radians())+cross*Math.cos(p.radians());
+                peak=Math.max(peak,WaveShape.height(packetProfile,grid,xx,zz,0,64));
+            }
+            lowPeak=Math.min(lowPeak,peak);highPeak=Math.max(highPeak,peak);
+        }
+        check(highPeak-lowPeak>.05,"Crests form packets even without random height noise");
         // Track actual crest locations along the transverse direction, rather than testing amplitude noise.
         var warped=new WaveDetail(true,16,0,48,24,.65,0,.25,1.7,.22);
         var straight=new WaveDetail(true,16,0,48,24,.65,0,.25,1.7,0);

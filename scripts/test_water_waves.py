@@ -295,7 +295,7 @@ tex_param(0x0DE1,0x2801,0x2600);tex_param(0x0DE1,0x2800,0x2600);u1i(loc('aste_Wa
 def spectrum_band(name,cx,cz,t,length,speed,angle):
     k=2*math.pi/length
     phase=math.remainder(k*(cx*math.cos(angle)+cz*math.sin(angle)-speed*t),2*math.pi)
-    u4f(loc(name),k*math.cos(angle),k*math.sin(angle),phase,.5 if name=='aste_WaveProfile' else 0)
+    u4f(loc(name),k*math.cos(angle),k*math.sin(angle),phase,.5 if name=='aste_WaveProfile' else (1 if name=='aste_WaveCross' else 0))
 def spectrum_noise(band,cx,cz,t,scale,period):
     x,z,v=cx/scale,cz/scale,t/period
     ix,iz,it=math.floor(x),math.floor(z),math.floor(v)
@@ -310,6 +310,7 @@ for row in Path('build/wave-test/spectrum.txt').read_text().splitlines():
     ox,oz=(math.floor(cx/64)-5)*64,(math.floor(cz/64)-5)*64
     u3f(loc('aste_WaveWindGrid'),cx-ox,cz-oz,0)
     spectrum_band('aste_WaveProfile',cx,cz,t,32,4,math.radians(35))
+    spectrum_band('aste_WaveCross',cx,cz,t,32/.83,4*.91,math.radians(35)+.63)
     spectrum_band('aste_WaveChopA',cx,cz,t,8,4*1.7,math.radians(35)+.7)
     spectrum_band('aste_WaveChopB',cx,cz,t,8/1.37,4*1.7*.83,math.radians(35)-1.1)
     spectrum_noise('A',cx,cz,t,48,24);spectrum_noise('B',cx,cz,t,48*.35,24*.23)
