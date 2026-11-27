@@ -21,6 +21,7 @@ uniform float aste_WaveWarp; // horizontal distortion in blocks
 uniform vec4 aste_WaveDetail; // full depth, noise strength, chop threshold, chop fraction
 uniform vec4 aste_WaveChopA; // kx, kz, camera/time phase, unused
 uniform vec4 aste_WaveChopB;
+uniform vec4 aste_WaveCross; // crossing swell kx, kz, camera/time phase, spread
 uniform sampler2D aste_WaveWind;
 uniform vec3 aste_WaveWindGrid; // camera minus wind-grid origin X/Z, time minus epoch
 uniform vec4 aste_WaveNoiseA; // camera fractional noise coordinate X/Z, time fraction, 1/scale
@@ -52,6 +53,15 @@ float aste_windRatio(vec2 p) {
     return mix(mix(aste_windNode(i),aste_windNode(i+ivec2(1,0)),f.x),
                mix(aste_windNode(i+ivec2(0,1)),aste_windNode(i+ivec2(1,1)),f.x),f.y);
 }
+// Invert the horizontal trochoidal phase rather than moving the hull mask/mesh in XZ.
+float aste_trochoid(float phase,float storm) {
+    float q=0.72*storm;
+    if(q==0.0)return sin(phase);
+    float theta=mod(phase-1.57079632679+3.14159265359,6.28318530718)-3.14159265359;
+    float u=theta+q*sin(theta);
+    for(int i=0;i<3;i++)u-=(u-q*sin(u)-theta)/(1.0-q*cos(u));
+    return (cos(u)+q*0.5)/(1.0+q*0.5);
+}
 float aste_waveHeight(vec2 p,float depth) {
     aste_waveEnergy=1.0;aste_waveStorm=0.0;
     float phase=dot(p,aste_WaveProfile.xy)+aste_WaveProfile.z;
@@ -69,8 +79,12 @@ float aste_waveHeight(vec2 p,float depth) {
     }
     float gate=smoothstep(aste_WaveDetail.z,1.0,ratio),chop=0.0;
     aste_waveStorm=gate;
-    float s=sin(phase+n*aste_WaveDetail.y*0.6),a=0.24*gate;
-    float mainWave=(s+a*(2.0*s*s-1.0))/(1.0+a)*(1.0+n*aste_WaveDetail.y);
+    float crossPhase=dot(p+warp,aste_WaveCross.xy)+aste_WaveCross.z+1.73;
+    float spread=aste_WaveCross.w;
+    float packet=1.0-spread*0.22+spread*0.22*cos(crossPhase);
+    float carrier=phase+n*aste_WaveDetail.y*0.6+spread*1.1*sin(crossPhase);
+    float mainWave=((1.0-0.28*spread)*packet*aste_trochoid(carrier,gate)
+                   +0.28*spread*aste_trochoid(crossPhase,gate*0.8))*(1.0+n*aste_WaveDetail.y);
     if(gate>0.0&&aste_WaveDetail.w>0.0) {
         float jitter=aste_noise(vec3(p*aste_WaveNoiseB.w+aste_WaveNoiseB.xy,aste_WaveNoiseB.z),aste_WaveNoiseOriginB,aste_WaveSeed^0x5bd1e995u);
         chop=(0.7*sin(dot(p+warp,aste_WaveChopA.xy)+aste_WaveChopA.z+1.8*jitter)

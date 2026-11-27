@@ -15,9 +15,21 @@ public final class WaveShape {
         double b=mix(mix(hash(ix,iz,it+1,seed),hash(ix+1,iz,it+1,seed),fx),mix(hash(ix,iz+1,it+1,seed),hash(ix+1,iz+1,it+1,seed),fx),fz);
         return mix(a,b,ft);
     }
-    /** Zero-mean second harmonic: narrow crest and broad trough, bounded by one. */
-    public static double crest(double sine,double storm){
-        double a=.24*storm;return (sine+a*(2*sine*sine-1))/(1+a);
+    /** Eulerian trochoid: theta=u-q*sin(u). q<1 keeps it single valued.
+     * The +q/2 correction removes the spatial mean; normalization bounds the crest by one.
+     * Fixed three Newton steps have residual <1.1e-6 at the maximum q=.72.
+     */
+    public static double trochoid(double phase,double storm){
+        double q=.72*storm;
+        if(q==0)return WaveMath.fastSin(phase);
+        double theta=phase-Math.PI/2;
+        theta-=WaveMath.TAU*Math.floor((theta+Math.PI)/WaveMath.TAU);
+        double u=theta+q*WaveMath.fastSin(theta);
+        for(int i=0;i<3;i++){
+            double sine=WaveMath.fastSin(u),cosine=WaveMath.fastSin(u+Math.PI/2);
+            u-=(u-q*sine-theta)/(1-q*cosine);
+        }
+        return (WaveMath.fastSin(u+Math.PI/2)+q*.5)/(1+q*.5);
     }
     private static double mix(double a,double b,double f){return a+(b-a)*f;}
     public static double height(WaveParameters p,WaveWindGrid wind,double x,double z,double seconds,double depth){

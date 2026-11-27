@@ -3,13 +3,17 @@ package net.aste.aeroworks.waves;
 /** Per-step coefficients: never repeat trig/config preparation for each buoyancy sample. */
 public final class WaveSpectrum {
     private WaveParameters p;private WaveWindGrid wind;private double seconds;
-    private double kx,kz,phase,ax,az,ap,bx,bz,bp,warpAmplitude;
+    private double kx,kz,phase,ax,az,ap,bx,bz,bp,cx,cz,cp,spread,warpAmplitude;
     public void begin(WaveParameters p,WaveWindGrid wind,double seconds){
         this.p=p;this.wind=wind;this.seconds=seconds;
         double k=WaveMath.TAU/p.wavelength(),angle=p.radians();
         kx=k*Math.cos(angle);kz=k*Math.sin(angle);phase=Math.IEEEremainder(-k*p.speed()*seconds,WaveMath.TAU);
         var d=p.detail();warpAmplitude=p.wavelength()*d.crestDistortion();double ak=k/d.chopLength(),bk=ak*1.37;
         ax=ak*Math.cos(angle+.7);az=ak*Math.sin(angle+.7);ap=Math.IEEEremainder(-ak*p.speed()*d.chopSpeed()*seconds,WaveMath.TAU);
+        double ck=k*.83;
+        cx=ck*Math.cos(angle+.63);cz=ck*Math.sin(angle+.63);
+        cp=Math.IEEEremainder(-ck*p.speed()*.91*seconds,WaveMath.TAU);
+        spread=Math.min(1,d.crestDistortion()/.22);
         bx=bk*Math.cos(angle-1.1);bz=bk*Math.sin(angle-1.1);bp=Math.IEEEremainder(-bk*p.speed()*d.chopSpeed()*.83*seconds,WaveMath.TAU);
     }
     public double amplitude(){return p.amplitude();}
@@ -26,7 +30,11 @@ public final class WaveSpectrum {
             mainPhase+=kx*warpX+kz*warpZ;
         }
         double gate=WaveMath.smooth((ratio-d.chopThreshold())/(1-d.chopThreshold())),chop=0;
-        double main=WaveShape.crest(WaveMath.fastSin(mainPhase+n*d.noiseStrength()*.6),gate)*(1+n*d.noiseStrength());
+        double cross=cx*(x+warpX)+cz*(z+warpZ)+cp+1.73;
+        double packet=1-spread*.22+spread*.22*WaveMath.fastSin(cross+Math.PI/2);
+        double carrier=mainPhase+n*d.noiseStrength()*.6+spread*1.1*WaveMath.fastSin(cross);
+        double main=((1-.28*spread)*packet*WaveShape.trochoid(carrier,gate)
+                +.28*spread*WaveShape.trochoid(cross,gate*.8))*(1+n*d.noiseStrength());
         if(gate>0&&d.chopFraction()>0){
             double jitter=WaveShape.noise(x/(d.noiseScale()*.35),z/(d.noiseScale()*.35),seconds/(d.noisePeriod()*.23),wind.seed()^0x5bd1e995);
             chop=(.7*WaveMath.fastSin(ax*x+az*z+ap+ax*warpX+az*warpZ+1.8*jitter)+.3*WaveMath.fastSin(bx*x+bz*z+bp+bx*warpX+bz*warpZ-1.2*jitter))

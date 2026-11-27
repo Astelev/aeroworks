@@ -52,13 +52,17 @@ final class WaveDetailRenderer {
         GL33C.glUniform4f(loc(program,"aste_WaveDetail"),(float)d.effectiveDepth(),(float)d.noiseStrength(),(float)d.chopThreshold(),(float)d.chopFraction());
         band(program,"aste_WaveChopA",camera,seconds,p.wavelength()*d.chopLength(),p.speed()*d.chopSpeed(),p.radians()+.7);
         band(program,"aste_WaveChopB",camera,seconds,p.wavelength()*d.chopLength()/1.37,p.speed()*d.chopSpeed()*.83,p.radians()-1.1);
+        band(program,"aste_WaveCross",camera,seconds,p.wavelength()/.83,p.speed()*.91,p.radians()+.63,Math.min(1,d.crestDistortion()/.22));
         noise(program,"A",camera,seconds,d.noiseScale(),d.noisePeriod());
         noise(program,"B",camera,seconds,d.noiseScale()*.35,d.noisePeriod()*.23);
         GL33C.glUniform1ui(loc(program,"aste_WaveSeed"),grid.seed());
     }
     private static void band(int program,String name,Vec3 camera,double time,double length,double speed,double angle){
+        band(program,name,camera,time,length,speed,angle,0);
+    }
+    private static void band(int program,String name,Vec3 camera,double time,double length,double speed,double angle,double weight){
         GL33C.glUniform4f(loc(program,name),(float)(WaveMath.TAU*Math.cos(angle)/length),(float)(WaveMath.TAU*Math.sin(angle)/length),
-                (float)WaveMath.phase(camera.x,camera.z,time,length,speed,angle),0);
+                (float)WaveMath.phase(camera.x,camera.z,time,length,speed,angle),(float)weight);
     }
     private static void noise(int program,String band,Vec3 camera,double time,double scale,double period){
         double x=camera.x/scale,z=camera.z/scale,t=time/period;
