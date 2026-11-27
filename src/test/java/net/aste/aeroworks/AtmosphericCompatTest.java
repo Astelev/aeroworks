@@ -17,6 +17,13 @@ public final class AtmosphericCompatTest {
                 .orElseThrow(()->new AssertionError(node.name+"."+name+desc));
     }
     public static void main(String[] args) throws Exception {
+        try(var config=AtmosphericCompatTest.class.getResourceAsStream("/aeroworks.mixins.json")) {
+            check(config!=null,"Missing packaged mixin configuration");
+            var json=com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(config,java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            var names=new java.util.HashSet<String>();
+            for(String group:new String[]{"mixins","client"})for(var name:json.getAsJsonArray(group))
+                check(names.add(name.getAsString()),"Duplicate mixin: "+name);
+        }
         // Load the public bridges while denying both optional namespaces, as on a standalone install.
         var isolated = new ClassLoader(AtmosphericCompatTest.class.getClassLoader()) {
             @Override protected Class<?> loadClass(String name,boolean resolve) throws ClassNotFoundException {

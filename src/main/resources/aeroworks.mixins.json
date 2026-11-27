@@ -34,10 +34,6 @@
     "atmospheric.AtmosphericCloudTurbulenceMixin",
     "atmospheric.AtmosphericFlightTurbulenceMixin",
     "atmospheric.AtmosphericSailTurbulenceMixin",
-    "atmospheric.AtmosphericWingSoaringMixin",
-    "atmospheric.AtmosphericCloudTurbulenceMixin",
-    "atmospheric.AtmosphericFlightTurbulenceMixin",
-    "atmospheric.AtmosphericSailTurbulenceMixin",
     "atmospheric.AtmosphericWingSoaringMixin"
   ],
   "plugin": "net.aste.aeroworks.compat.CompatibilityPlugin"
