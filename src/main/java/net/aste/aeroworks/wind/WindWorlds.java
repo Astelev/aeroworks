@@ -236,7 +236,7 @@ public final class WindWorlds {
             }
             var pos=dev.ryanhcode.sable.Sable.HELPER.projectOutOfSubLevel(level,player.position());
             var marks=new java.util.ArrayList<net.aste.aeroworks.network.WindVisualPayload.Flow>();
-            for(var flow:AtmosphericWind.present()?java.util.List.<MountainFlow>of():world.terrain.visible(level,world.seed,pos.x,pos.z,now,p)) {
+            for(var flow:AtmosphericWind.present()?MountainFlowCatalog.EMPTY:world.terrain.visible(level,world.seed,pos.x,pos.z,now,p)) {
                 if(!flow.rising() || p.verticalSpeed()<=0) continue;
                 double x=flow.centerX(p,now), z=flow.centerZ(p,now);
                 if((x-pos.x)*(x-pos.x)+(z-pos.z)*(z-pos.z)>384*384) continue;
