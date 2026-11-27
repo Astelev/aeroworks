@@ -73,6 +73,7 @@ public final class AtmosphericWind {
     @SubscribeEvent(priority=EventPriority.HIGHEST)
     public static void tick(LevelTickEvent.Post event) {
         if(!present() || !(event.getLevel() instanceof ServerLevel level))return;
+        if(!WindSettings.current().enabled()||!WindFields.usesDefault()){WORLDS.remove(level);return;}
         var container=SubLevelContainer.getContainer(level);
         if(container==null)return;
         var world=WORLDS.computeIfAbsent(level,k->new World());

@@ -45,10 +45,6 @@ public final class DeepSeasWind {
     }
     public static Vec3 at(Level level,double x,double y,double z){
         if(level==null||!DeepSeasWindPayload.finite(x,y,z))return Vec3.ZERO;
-        if(AtmosphericWind.present() && !(level instanceof ServerLevel)) {
-            var v=new Vector3d();AtmosphericWind.read(level,x,y,z,v);
-            return nativeUnits(new Vec3(v.x,0,v.z),Config.DEEP_SEAS_WIND_REFERENCE.get());
-        }
         var body=containing(level,x,y,z);
         if(level instanceof ServerLevel server){
             var wind=body instanceof ServerSubLevel serverBody?bodyWind(server,serverBody):ambient(server,x,y,z);
@@ -58,6 +54,11 @@ public final class DeepSeasWind {
         if(level!=clientLevel||packet==null||level.getGameTime()<received||level.getGameTime()-received>40)return Vec3.ZERO;
         var state=body==null?null:clientBodies.get(body.getUniqueId());
         if(state!=null)return nativeUnits(new Vec3(state.x(),0,state.z()),packet.reference());
+        if(AtmosphericWind.present() && packet.dynamic()) {
+            if(!packet.enabled())return Vec3.ZERO;
+            var v=new Vector3d();AtmosphericWind.read(level,x,y,z,v);
+            return nativeUnits(new Vec3(v.x,0,v.z),packet.reference());
+        }
         var out=new Vector3d();packet.ambient((level.getGameTime()-received)/20.0,x,y,z,out);
         return nativeUnits(new Vec3(out.x,0,out.z),packet.reference());
     }
@@ -93,7 +94,7 @@ public final class DeepSeasWind {
     }
     @SubscribeEvent(priority=EventPriority.LOWEST)
     public static void tick(LevelTickEvent.Post event){
-        if(AtmosphericWind.present() || !(event.getLevel() instanceof ServerLevel level)||!ModList.get().isLoaded("create_high_seas")||level.getGameTime()%5!=0||level.players().isEmpty())return;
+        if(!(event.getLevel() instanceof ServerLevel level)||!ModList.get().isLoaded("create_high_seas")||level.getGameTime()%5!=0||level.players().isEmpty())return;
         var settings=WindSettings.current();var clock=WindWorlds.clock(level);var container=SubLevelContainer.getContainer(level);
         for(var player:level.players()){
             var pos=dev.ryanhcode.sable.Sable.HELPER.projectOutOfSubLevel(level,player.position());
@@ -115,7 +116,7 @@ public final class DeepSeasWind {
             }
             var fallback=ambient(level,pos.x,pos.y,pos.z);
             PacketDistributor.sendToPlayer(player,new DeepSeasWindPayload(level.dimension().location(),level.getGameTime()/20.0,
-                settings.enabled(),settings.dynamic()&&WindFields.usesDefault(),clock.seed(),clock.phase(),clock.rate(),settings.field(),
+                settings.enabled(),(settings.dynamic()||AtmosphericWind.present())&&WindFields.usesDefault(),clock.seed(),clock.phase(),clock.rate(),settings.field(),
                 Config.DEEP_SEAS_WIND_REFERENCE.get(),fallback.x,fallback.z,weather,bodies));
         }
     }
