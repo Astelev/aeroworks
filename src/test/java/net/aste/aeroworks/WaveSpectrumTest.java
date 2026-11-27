@@ -133,6 +133,26 @@ public final class WaveSpectrumTest {
                 "Medium and deep water must have clearly distinct amplitudes");
         var oldRange=new WaveDetail(true,16,0,48,24,.65,0,.25,1.7,0,1);
         near(oldRange.effectiveDepth(),16,0,"Range multiplier one restores the original depth span");
+        // Existing configs gain strong storm waves without increasing calm/moderate seas.
+        near(d.stormAmplitudeMultiplier(),5.5,0,"Default storm height boost");
+        var oldHeights=new WaveDetail(true,16,.2,48,24,.65,.35,.25,1.7,.22,3,1);
+        for(float ratio:new float[]{.1f,.4f,.65f}) {
+            var w=wind(ratio,ratio,0,0,0);
+            near(WaveShape.height(p,w,x,z,t,64),WaveShape.height(profile(oldHeights),w,x,z,t,64),1e-9,"Ordinary seas keep their previous height");
+        }
+        near(WaveShape.height(p,grid,x,z,t,64),5.5*WaveShape.height(profile(oldHeights),grid,x,z,t,64),1e-9,"Full storm boost shared by all height samples");
+        double peak=-100,peakX=0,peakZ=0;
+        var stormSpectrum=new WaveSpectrum();stormSpectrum.begin(p,grid,13);
+        for(int iz=0;iz<=192;iz++)for(int ix=0;ix<=192;ix++) {
+            double value=stormSpectrum.height(ix*.5,iz*.5,64);
+            if(value>peak){peak=value;peakX=ix*.5;peakZ=iz*.5;}
+        }
+        check(peak>=2&&peak<=3.3,"Deep-water storm crests reach roughly 2-3 blocks: "+peak);
+        float[] deepDepths=new float[h.length];Arrays.fill(deepDepths,64);
+        var deepPatch=new WaveShorePatch(-128,-128,65,h,deepDepths,16);
+        var raisedBlock=new BlockWaveSamples(new double[]{peakX,66,peakZ,1},false,1);
+        body.calculate(raisedBlock,deepPatch,p,new Pose3d(),new Vector3d(peakX,66,peakZ),13,1,.05,grid);
+        check(body.impulse.y>0,"Storm buoyancy reaches a block two metres above the calm surface; culling includes amplified waves");
         // CPU reference fixtures consumed by real OpenGL tests, including large/negative coordinates.
         var rows=new ArrayList<String>();var random=new Random(431);
         for(int i=0;i<64;i++){

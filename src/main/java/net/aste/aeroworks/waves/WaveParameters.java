@@ -12,6 +12,6 @@ public record WaveParameters(boolean enabled,boolean buoyancy,double amplitude,d
                 ||!Double.isFinite(speed)||speed<0||speed>32||!Double.isFinite(direction)||Math.abs(direction)>360
                 ||!Double.isFinite(shoreFade)||shoreFade<4||shoreFade>64) throw new IllegalArgumentException("Invalid wave profile");
     }
-    public double maximumDisplacement(){return amplitude*(detail.enabled()?Math.sqrt(1.5)*(1+detail.noiseStrength()+detail.chopFraction()):1);}
+    public double maximumDisplacement(){return amplitude*(detail.enabled()?Math.sqrt(1.5)*(1+detail.noiseStrength()+detail.chopFraction())*detail.stormAmplitudeMultiplier():1);}
     public double radians(){return Math.toRadians(direction);}
 }
