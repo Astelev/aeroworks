@@ -6,7 +6,7 @@ import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 
-/** Offroad 1.3.2 bytecode: the second queuedForce.fma is lateral; the first is rolling/braking/drive. */
+/** Offroad 1.3.3 bytecode: the second queuedForce.fma is lateral; the first is rolling/braking/drive. */
 @Pseudo
 @Mixin(targets="dev.ryanhcode.offroad.content.blocks.wheel_mount.WheelMountBlockEntity",remap=false)
 public abstract class WheelLateralGripMixin {
