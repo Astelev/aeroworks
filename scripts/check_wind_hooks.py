@@ -53,3 +53,10 @@ solver=(root/'src/main/java/net/aste/aeroworks/aerodynamics/PassiveImpulse.java'
 assert 'Math.sqrt(target/proposed)' not in solver and 'addSurface(' in solver
 assert 'passivity.addSurface(lever,velocity,normal,force.lift,force.normalDamping,force.baseDamping,timeStep)' in model
 print('Control compatibility: unconditional Lift Patch caps, two-sided normal-pressure operator and coupled midpoint integration without whole-body rescaling verified')
+
+# A native water control must be dispatched with original motion before any air-only preparation.
+routing='WaterSurfaceDispatch.contribute(provider,context,subLevel,localPose,'
+assert routing in source
+assert source.index(routing)<source.index('if (!aste_aeroworks$wind.ready())')
+assert 'timeStep,linearVelocity,angularVelocity,linearImpulse,angularImpulse,group,' in source
+print('Native water surfaces: both surface callers dispatch raw velocity/time before air preparation')

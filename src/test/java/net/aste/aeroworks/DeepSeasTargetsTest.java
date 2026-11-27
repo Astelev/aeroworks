@@ -48,6 +48,13 @@ public final class DeepSeasTargetsTest {
                 int count=0;for(var m:entry(jar,"com/maxenonyme/highseas/"+type).methods)count+=calls(m,manager.name,"getWind");
                 if(count==0)throw new AssertionError("Missing visual wind path "+type);
             }
+            var rudder=entry(jar,"com/maxenonyme/highseas/block/RudderBlock");
+            var water=method(rudder,"sable$contributeLiftAndDrag","(Ldev/ryanhcode/sable/api/block/BlockSubLevelLiftProvider$LiftProviderContext;Ldev/ryanhcode/sable/sublevel/ServerSubLevel;Ldev/ryanhcode/sable/companion/math/Pose3d;DLorg/joml/Vector3dc;Lorg/joml/Vector3dc;Lorg/joml/Vector3d;Lorg/joml/Vector3d;Ldev/ryanhcode/sable/api/block/BlockSubLevelLiftProvider$LiftProviderGroup;)V");
+            if(calls(water,"net/minecraft/world/level/material/FluidState","is")!=1||calls(water,tracker.name,"realFluidState")!=1)
+                throw new AssertionError("Rudder native medium decision changed");
+            boolean dense=false;for(var insn:water.instructions)if(insn instanceof LdcInsnNode ldc&&Double.valueOf(50).equals(ldc.cst))dense=true;
+            if(!dense||calls(water,"dev/ryanhcode/sable/sublevel/ServerSubLevel","getMassTracker")!=1||calls(water,"org/joml/Vector3d","cross")!=1)
+                throw new AssertionError("Rudder water coefficient or centre-of-mass torque changed");
             var sail=entry(jar,"com/maxenonyme/highseas/block/BoatSailBlock");
             for(String name:new String[]{"sable$getLiftScalar","sable$getParallelDragScalar"}){
                 var m=method(sail,name,"()F");boolean zero=false;for(var i:m.instructions)if(i.getOpcode()==org.objectweb.asm.Opcodes.FCONST_0)zero=true;
