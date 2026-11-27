@@ -29,6 +29,18 @@ public final class DeepSeasTargetsTest {
             if(calls(overload,manager.name,"getWind")!=1)throw new AssertionError("Vector overload no longer delegates");
             var sample=entry(jar,"com/maxenonyme/highseas/wind/WindSample");method(sample,"<init>","(Lnet/minecraft/world/phys/Vec3;DDDDD)V");
             var system=entry(jar,"com/maxenonyme/highseas/sail/SailWindSystem");
+            method(system,"keel","(Ldev/ryanhcode/sable/sublevel/SubLevel;JLorg/joml/Vector3dc;)Lorg/joml/Vector3d;");
+            method(system,"afloat","(Lnet/minecraft/server/level/ServerLevel;Ldev/ryanhcode/sable/sublevel/SubLevel;)Z");
+            var registry=entry(jar,"com/maxenonyme/highseas/sail/SailWindRegistry");
+            method(registry,"getSails","(Ldev/ryanhcode/sable/sublevel/SubLevel;J)Ljava/util/List;");
+            var vane=entry(jar,"com/maxenonyme/highseas/client/WindVaneGoggle");
+            method(vane,"alignment","(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)D");
+            var shader=entry(jar,"com/maxenonyme/highseas/client/SailShaderState");
+            var mean=method(shader,"sailDir","(Lorg/joml/Quaterniondc;Ljava/util/List;)Lorg/joml/Vector3d;");
+            for(String field:new String[]{"supportSign","area","axisX","axisY","axisZ"}) {
+                boolean found=false;for(var insn:mean.instructions)if(insn instanceof FieldInsnNode f&&f.name.equals(field))found=true;
+                if(!found)throw new AssertionError("Recheck native vane's area/support-weighted direction: "+field);
+            }
             var pull=method(system,"pull","(Lnet/minecraft/server/level/ServerLevel;Ldev/ryanhcode/sable/sublevel/ServerSubLevel;Ldev/ryanhcode/sable/companion/math/Pose3dc;Lcom/maxenonyme/highseas/sail/SailGroup;DDLcom/maxenonyme/highseas/sail/SailWindSystem$Drive;)V");
             if(calls(pull,manager.name,"getWind")!=1)throw new AssertionError("Expected exactly one group wind call");
             if(calls(pull,"dev/ryanhcode/sable/companion/math/Pose3dc","transformPosition")!=1)throw new AssertionError("Sail coordinates must already be world coordinates");

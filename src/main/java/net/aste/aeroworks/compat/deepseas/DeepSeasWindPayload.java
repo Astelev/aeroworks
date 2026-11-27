@@ -19,8 +19,9 @@ public record DeepSeasWindPayload(ResourceLocation dimension, double time, boole
     public static final int MAX_BODIES=128;
     public static final Type<DeepSeasWindPayload> TYPE=new Type<>(ResourceLocation.fromNamespaceAndPath(Aeroworks.MODID,"deep_seas_wind"));
     public static final StreamCodec<RegistryFriendlyByteBuf,DeepSeasWindPayload> CODEC=StreamCodec.of(DeepSeasWindPayload::write,DeepSeasWindPayload::read);
-    public record Body(UUID id,double x,double z) {
-        public Body {if(id==null||!finite(x,z))throw new IllegalArgumentException("Invalid body wind");}
+    public record Body(UUID id,double x,double z,double forwardX,double forwardZ) {
+        public Body(UUID id,double x,double z){this(id,x,z,0,0);}
+        public Body {if(id==null||!finite(x,z,forwardX,forwardZ))throw new IllegalArgumentException("Invalid body wind");}
     }
     public DeepSeasWindPayload {
         if(dimension==null||parameters==null||!finite(time,phase,rate,reference,fallbackX,fallbackZ)||reference<=0||rate<0||bodies.size()>MAX_BODIES)
@@ -51,7 +52,7 @@ public record DeepSeasWindPayload(ResourceLocation dimension, double time, boole
             writeWeather(b,blend.from());writeWeather(b,blend.to());b.writeDouble(blend.started());b.writeDouble(blend.duration());
         }
         b.writeVarInt(v.bodies.size());
-        for(var body:v.bodies){b.writeUUID(body.id);b.writeDouble(body.x);b.writeDouble(body.z);}
+        for(var body:v.bodies){b.writeUUID(body.id);b.writeDouble(body.x);b.writeDouble(body.z);b.writeDouble(body.forwardX);b.writeDouble(body.forwardZ);}
     }
     private static void writeWeather(RegistryFriendlyByteBuf b,WindWeather w){
         b.writeLong(w.cloudType());b.writeDouble(w.rain());b.writeDouble(w.storm());b.writeDouble(w.cloudHeading());b.writeDouble(w.surfaceTurn());b.writeDouble(w.aloftTurn());
@@ -73,7 +74,7 @@ public record DeepSeasWindPayload(ResourceLocation dimension, double time, boole
         }
         int count=b.readVarInt();
         if(count<0||count>MAX_BODIES)throw new IllegalArgumentException("Too many body winds");
-        var bodies=new ArrayList<Body>(count);for(int i=0;i<count;i++)bodies.add(new Body(b.readUUID(),b.readDouble(),b.readDouble()));
+        var bodies=new ArrayList<Body>(count);for(int i=0;i<count;i++)bodies.add(new Body(b.readUUID(),b.readDouble(),b.readDouble(),b.readDouble(),b.readDouble()));
         return new DeepSeasWindPayload(dim,time,enabled,dynamic,seed,phase,rate,p,reference,x,z,cells,bodies);
     }
 }

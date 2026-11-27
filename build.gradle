@@ -422,3 +422,11 @@ def testLoadedWaveBlockView = tasks.register('testLoadedWaveBlockView', JavaExec
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
 }
 tasks.named('check') { dependsOn testLoadedWaveBlockView }
+
+def testSailHeading = tasks.register('testSailHeading', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.SailHeadingTest'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testSailHeading }

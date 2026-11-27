@@ -308,8 +308,10 @@ public class Config {
         BUILDER.pop();
     }
     public static final ModConfigSpec.DoubleValue DEEP_SEAS_WIND_REFERENCE;
+    public static final ModConfigSpec.DoubleValue DEEP_SEAS_SAIL_DRIFT;
     static {
         BUILDER.push("deep_seas");
+        DEEP_SEAS_SAIL_DRIFT=BUILDER.comment("Боковое смещение тяги судна по ветру относительно среднего направления парусов. 0 — строго по парусам, 0.15 — до 8.5 градусов. Нос не разворачивается при встречном ветре.").defineInRange("sail_wind_drift",.15,0,.5);
         DEEP_SEAS_WIND_REFERENCE=BUILDER.comment("М/с AeroWorks на единицу условного ветра High Seas. Направление сохраняется; меньшее значение усиливает родную тягу парусов Deep Seas.",
                 "Это перевод масштаба для формул Deep Seas, а не отдельный генератор ветра. 9 м/с по умолчанию соответствуют 1 единице.")
                 .defineInRange("wind_reference_speed",9.0,.1,1000.0);

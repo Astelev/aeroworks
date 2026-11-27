@@ -16,10 +16,10 @@ public final class DeepSeasWindTest {
         check(DeepSeasWind.nativeUnits(Vec3.ZERO,9).equals(Vec3.ZERO),"Disabled wind stays calm");
         check(DeepSeasWind.nativeUnits(new Vec3(Double.NaN,0,1),9).equals(Vec3.ZERO),"Reject nonfinite providers");
         var dim=ResourceLocation.fromNamespaceAndPath("minecraft","overworld");
-        var bodies=java.util.stream.IntStream.range(0,DeepSeasWindPayload.MAX_BODIES).mapToObj(i->new DeepSeasWindPayload.Body(new UUID(1,i),i,-i)).toList();
+        var bodies=java.util.stream.IntStream.range(0,DeepSeasWindPayload.MAX_BODIES).mapToObj(i->new DeepSeasWindPayload.Body(new UUID(1,i),i,-i,1,0)).toList();
         var p=new DeepSeasWindPayload(dim,30,true,true,123,4,.03,WindParameters.DEFAULT,9,2,3,Map.of(),bodies);
         var b=new RegistryFriendlyByteBuf(Unpooled.buffer(),RegistryAccess.EMPTY);
-        try{DeepSeasWindPayload.CODEC.encode(b,p);check(b.readableBytes()<5000,"Bounded packet");check(p.equals(DeepSeasWindPayload.CODEC.decode(b)),"Roundtrip server settings, clock and body identities");check(b.readableBytes()==0,"Complete packet");}finally{b.release();}
+        try{DeepSeasWindPayload.CODEC.encode(b,p);check(b.readableBytes()<8*1024,"Bounded packet");check(p.equals(DeepSeasWindPayload.CODEC.decode(b)),"Roundtrip server settings, clock and body identities");check(b.readableBytes()==0,"Complete packet");}finally{b.release();}
         var result=new ZonalWindModel.Result();var out=new Vector3d();
         p.ambient(.25,123,250,-321,out);
         ZonalWindModel.sample(p.parameters(),p.seed(),p.phase()+.25*p.rate(),123,250,-321,WindWeatherBlend.CLEAR,p.time()+.25,result);

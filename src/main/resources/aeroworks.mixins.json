@@ -12,7 +12,8 @@
     "client.WaveShaderMixin",
     "client.WaveRendererMixin",
     "rain.CloudRainWorldMixin",
-    "rain.CloudRainQuadMixin"
+    "rain.CloudRainQuadMixin",
+    "deepseas.DeepSeasVaneAlignmentMixin"
   ],
   "injectors": {
     "defaultRequire": 1
@@ -34,7 +35,8 @@
     "atmospheric.AtmosphericCloudTurbulenceMixin",
     "atmospheric.AtmosphericFlightTurbulenceMixin",
     "atmospheric.AtmosphericSailTurbulenceMixin",
-    "atmospheric.AtmosphericWingSoaringMixin"
+    "atmospheric.AtmosphericWingSoaringMixin",
+    "deepseas.DeepSeasSailHeadingMixin"
   ],
   "plugin": "net.aste.aeroworks.compat.CompatibilityPlugin"
 }

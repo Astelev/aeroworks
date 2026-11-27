@@ -35,13 +35,18 @@ public final class DeepSeasWind {
     private static final class Cache {long tick=Long.MIN_VALUE;final Map<UUID,Vec3> bodies=new HashMap<>();}
     private DeepSeasWind(){}
     public static void register(RegisterPayloadHandlersEvent event){
-        event.registrar("2").playToClient(DeepSeasWindPayload.TYPE,DeepSeasWindPayload.CODEC,(v,c)->receiver.accept(v,c));
+        event.registrar("3").playToClient(DeepSeasWindPayload.TYPE,DeepSeasWindPayload.CODEC,(v,c)->receiver.accept(v,c));
     }
     public static void installClient(BiConsumer<DeepSeasWindPayload,net.neoforged.neoforge.network.handling.IPayloadContext> handler){receiver=handler;}
     public static void receive(Level level,DeepSeasWindPayload payload){
         if(level==null||!level.dimension().location().equals(payload.dimension()))return;
         clientLevel=level;client=payload;received=level.getGameTime();
         var map=new HashMap<UUID,DeepSeasWindPayload.Body>();for(var body:payload.bodies())map.put(body.id(),body);clientBodies=Map.copyOf(map);
+    }
+    public static boolean clientHeading(Level level,UUID id,Vector3d out){
+        if(level!=clientLevel||client==null||level.getGameTime()<received||level.getGameTime()-received>40)return false;
+        var state=clientBodies.get(id);if(state==null)return false;
+        out.set(state.forwardX(),0,state.forwardZ());return true;
     }
     public static Vec3 at(Level level,double x,double y,double z){
         if(level==null||!DeepSeasWindPayload.finite(x,y,z))return Vec3.ZERO;
@@ -107,7 +112,8 @@ public final class DeepSeasWind {
             nearby.sort(Comparator.comparingDouble(b->{var p=b.logicalPose().position();return (p.x()-pos.x)*(p.x()-pos.x)+(p.z()-pos.z)*(p.z()-pos.z);}));
             var bodies=new ArrayList<DeepSeasWindPayload.Body>();
             for(int i=0;i<Math.min(nearby.size(),DeepSeasWindPayload.MAX_BODIES);i++){
-                var body=nearby.get(i);var v=bodyWind(level,body);bodies.add(new DeepSeasWindPayload.Body(body.getUniqueId(),v.x,v.z));
+                var body=nearby.get(i);var v=bodyWind(level,body);var heading=DeepSeasSailHeading.forBody(level,body);
+                bodies.add(new DeepSeasWindPayload.Body(body.getUniqueId(),v.x,v.z,heading.x(),heading.z()));
             }
             var weather=new HashMap<Long,WindWeatherGrid.Cell>();
             for(var cell:WindWorlds.weather(level)) {
@@ -121,8 +127,8 @@ public final class DeepSeasWind {
         }
     }
     @SubscribeEvent public static void unload(LevelEvent.Unload e){
-        if(e.getLevel() instanceof ServerLevel server)CACHE.remove(server);
+        if(e.getLevel() instanceof ServerLevel server){CACHE.remove(server);DeepSeasSailHeading.clear(server);}
         if(e.getLevel()==clientLevel){clientLevel=null;client=null;clientBodies=Map.of();}
     }
-    @SubscribeEvent public static void stopped(ServerStoppedEvent e){CACHE.clear();}
+    @SubscribeEvent public static void stopped(ServerStoppedEvent e){CACHE.clear();DeepSeasSailHeading.clear();}
 }
