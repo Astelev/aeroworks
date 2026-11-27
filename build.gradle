@@ -137,7 +137,7 @@ configurations { sodiumContract }
 dependencies {
     sodiumContract('maven.modrinth:sodium:mc1.21.1-0.8.13-neoforge') { transitive=false }
     testImplementation "org.ow2.asm:asm-tree:9.8"
-    deepSeas 'curse.maven:create-deep-seas-1533137:9436715'
+    deepSeas 'curse.maven:create-deep-seas-1533137:9601142'
     compileOnly files(sableJar)
     compileOnly files('libs/create-aeronautics-lift-patch-1.1.0.jar')
     compileOnly sableCompileLibraries
@@ -348,7 +348,7 @@ def testParkingBrakes = tasks.register('testParkingBrakes', JavaExec) {
 }
 tasks.named('check') { dependsOn testParkingBrakes }
 
-// Optional Deep Seas contracts: use the exact same JAR as the attached 3.4.7 build.
+// Optional Deep Seas contracts: use the exact same JAR as the attached 3.4.8 build.
 ['DeepSeasWind','DeepSeasTargets'].each { name ->
     def task=tasks.register("test${name}",JavaExec){
         dependsOn tasks.named('testClasses')

@@ -12,7 +12,7 @@ public final class DeepSeasTargetsTest {
     private static int calls(MethodNode m,String owner,String name){int n=0;for(var i:m.instructions)if(i instanceof MethodInsnNode c&&c.owner.equals(owner)&&c.name.equals(name))n++;return n;}
     public static void main(String[] args)throws Exception{
         String hash=java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(Path.of(args[0]))));
-        if(!hash.equals("fc7b9c6023978e9d31c901f532c5e54d1d13e0f2431c20b5919b2a3368ad9c08"))throw new AssertionError("Deep Seas JAR differs from attached 3.4.7: "+hash);
+        if(!hash.equals("fbba14e1fd94420903f6515820378fd76eba935edef6914f36faa42db84816ef"))throw new AssertionError("Deep Seas JAR differs from attached 3.4.8: "+hash);
         try(var jar=new JarFile(args[0])){
             // A sealed ship is a render/interaction air pocket, never a new shoreline.
             var chunkMask=entry(jar,"com/maxenonyme/createsubmarine/submarine/mixin/LevelChunkMixin");
@@ -64,6 +64,6 @@ public final class DeepSeasTargetsTest {
         var prepare=worlds.methods.stream().filter(m->m.name.equals("prepareWeather")).findFirst().orElseThrow();
         if(calls(prepare,"net/minecraft/server/level/ServerLevel","players")==0)
             throw new AssertionError("Ambient weather must update even without any sail body");
-        System.out.println("Deep Seas 3.4.7 SHA256, both wind entry points, world-space sail hook, client indicators and optional-side isolation verified");
+        System.out.println("Deep Seas 3.4.8 SHA256, both wind entry points, world-space sail hook, client indicators and optional-side isolation verified");
     }
 }
