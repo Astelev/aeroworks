@@ -1,6 +1,7 @@
 package net.aste.aeroworks.wind;
 
 import java.util.Map;
+import net.aste.aeroworks.compat.atmospheric.AtmosphericWind;
 import java.util.concurrent.ConcurrentHashMap;
 import dev.nonamecrackers2.simpleclouds.common.world.CloudManager;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
@@ -72,18 +73,25 @@ public final class WindWorlds {
         var world = sample.level() == null ? null : WORLDS.get(sample.level());
         var result = RESULT.get();
         result.y=result.torqueX=result.torqueY=result.torqueZ=0;
-        if (world == null) {
+        boolean external=AtmosphericWind.present();
+        if(external) {
+            AtmosphericWind.sample(sample,out);
+            result.x=out.x;result.y=out.y;result.z=out.z;
+        }
+        if (world == null && !external) {
             ZonalWindModel.sample(p, 0, sample.timeSeconds() / p.fallbackPeriod(), sample.x(), sample.y(), sample.z(),
                     WindWeatherBlend.CLEAR, sample.timeSeconds(), result);
-        } else {
+        } else if(world!=null) {
             var snapshot = world.snapshot;
             var body = snapshot.bodies().get(sample.bodyId());
             double elapsed=Math.max(0,sample.timeSeconds()-snapshot.time());
             double phase = snapshot.phase()+elapsed*snapshot.rate();
-            ZonalWindModel.sample(p, world.seed, phase, sample.x(), sample.y(), sample.z(),
+            if(!external) ZonalWindModel.sample(p, world.seed, phase, sample.x(), sample.y(), sample.z(),
                     WindWeatherGrid.lookup(snapshot.weather(),sample.x(),sample.z(),sample.timeSeconds()), sample.timeSeconds(), result);
+            double vertical=result.y;
             if(body!=null) FlightWindEffects.apply(WindSettings.current().effects(),sample.timeSeconds(),
                     sample.x(),sample.y(),sample.z(),body.flows(),body.episode(),body.sails(),result);
+            if(external && body!=null)result.y+=vertical;
         }
         out.set(result.x, result.y, result.z);
         if(torque!=null) torque.set(result.torqueX,result.torqueY,result.torqueZ);
@@ -93,7 +101,7 @@ public final class WindWorlds {
     public static void tick(LevelTickEvent.Post event) {
         if (!(event.getLevel() instanceof ServerLevel level)) return;
         var config = WindSettings.current();
-        if (!config.enabled() || !config.dynamic() || !WindFields.usesDefault()) {
+        if (!config.enabled() || (!config.dynamic() && !AtmosphericWind.present()) || !WindFields.usesDefault()) {
             WORLDS.remove(level);
             if(level.getGameTime()%5==0) for(var player:level.players()) {
                 net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
@@ -152,7 +160,7 @@ public final class WindWorlds {
                 var reading = SimpleCloudsWind.read(level, manager, pos.x(), pos.y(), pos.z(), world.seed, p,
                         world.clouds,now,effects.turbulenceEnabled() && sails>0);
                 var blend = WindWeatherGrid.lookup(weather,pos.x(),pos.z());
-                var flows=sails==0 ? MountainFlowCatalog.EMPTY : world.terrain.nearby(level,world.seed,pos.x(),pos.z(),now,effects);
+                var flows=sails==0 || AtmosphericWind.present() ? MountainFlowCatalog.EMPTY : world.terrain.nearby(level,world.seed,pos.x(),pos.z(),now,effects);
                 previous=new BodyWeather(now,blend,
                         reading.exposure(),reading.minY(),reading.maxY(),sails,flows,null);
                 reads++;
@@ -228,7 +236,7 @@ public final class WindWorlds {
             }
             var pos=dev.ryanhcode.sable.Sable.HELPER.projectOutOfSubLevel(level,player.position());
             var marks=new java.util.ArrayList<net.aste.aeroworks.network.WindVisualPayload.Flow>();
-            for(var flow:world.terrain.visible(level,world.seed,pos.x,pos.z,now,p)) {
+            for(var flow:AtmosphericWind.present()?java.util.List.<MountainFlow>of():world.terrain.visible(level,world.seed,pos.x,pos.z,now,p)) {
                 if(!flow.rising() || p.verticalSpeed()<=0) continue;
                 double x=flow.centerX(p,now), z=flow.centerZ(p,now);
                 if((x-pos.x)*(x-pos.x)+(z-pos.z)*(z-pos.z)>384*384) continue;
@@ -276,7 +284,7 @@ public final class WindWorlds {
                     var state=world==null ? null : world.snapshot.bodies().get(nearest.getRuntimeId());
                     var episode=state==null ? null : state.episode();
                     String remaining=episode==null ? "нет" : String.format(java.util.Locale.ROOT,"ещё %.0f блоков",episode.length()-episode.progress());
-                    String message=String.format(java.util.Locale.ROOT,
+                    String message=(AtmosphericWind.present()?"[Atmospherics] ":"[AeroWorks] ")+String.format(java.util.Locale.ROOT,
                             "Ветер X %.2f / Y %.2f / Z %.2f м/с; парусов %d; горных потоков рядом %d; турбулентность: %s; момент %.2f",
                             velocity.x,velocity.y,velocity.z,state==null?0:state.sails(),state==null?0:state.flows().length,remaining,torque.length());
                     source.sendSuccess(()->net.minecraft.network.chat.Component.literal(message),false);

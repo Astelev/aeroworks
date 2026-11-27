@@ -129,3 +129,10 @@ type="optional"
 versionRange="[3.4.7,3.5)"
 ordering="AFTER"
 side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="aeronauticswinds"
+type="optional"
+versionRange="[2.1.0,2.2)"
+ordering="AFTER"
+side="BOTH"

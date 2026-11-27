@@ -15,7 +15,7 @@ public final class WaveClientState {
         if(level==null||!level.dimension().location().equals(payload.dimension()))return;
         world=level;wind=payload.wind();parameters=payload.parameters();revision=payload.revision();diagnostics=payload.diagnostics();
     }
-    public static WaveParameters current(Level level){return level!=null&&world==level?parameters:WaveParameters.CALM;}
+    public static WaveParameters current(Level level){return !net.aste.aeroworks.compat.atmospheric.AtmosphericWind.present()&&level!=null&&world==level?parameters:WaveParameters.CALM;}
     public static WaveWindGrid wind(Level level){return level!=null&&world==level?wind:WaveWindGrid.EMPTY;}
     public static String revision(Level level){return world==level?revision:"waiting";}
     public static String diagnostics(Level level){return world==level?diagnostics:"waiting for server";}

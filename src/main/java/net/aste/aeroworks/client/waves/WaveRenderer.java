@@ -79,6 +79,7 @@ public final class WaveRenderer {
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
+        if(net.aste.aeroworks.compat.atmospheric.AtmosphericWind.present())return;
         var mc=Minecraft.getInstance();
         if(level!=mc.level) {
             WaveClientState.clear(level);

@@ -1,6 +1,7 @@
 package net.aste.aeroworks.compat.deepseas;
 
 import java.util.*;
+import net.aste.aeroworks.compat.atmospheric.AtmosphericWind;
 import java.util.function.BiConsumer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.companion.math.BoundingBox3d;
@@ -44,6 +45,10 @@ public final class DeepSeasWind {
     }
     public static Vec3 at(Level level,double x,double y,double z){
         if(level==null||!DeepSeasWindPayload.finite(x,y,z))return Vec3.ZERO;
+        if(AtmosphericWind.present() && !(level instanceof ServerLevel)) {
+            var v=new Vector3d();AtmosphericWind.read(level,x,y,z,v);
+            return nativeUnits(new Vec3(v.x,0,v.z),Config.DEEP_SEAS_WIND_REFERENCE.get());
+        }
         var body=containing(level,x,y,z);
         if(level instanceof ServerLevel server){
             var wind=body instanceof ServerSubLevel serverBody?bodyWind(server,serverBody):ambient(server,x,y,z);
@@ -88,7 +93,7 @@ public final class DeepSeasWind {
     }
     @SubscribeEvent(priority=EventPriority.LOWEST)
     public static void tick(LevelTickEvent.Post event){
-        if(!(event.getLevel() instanceof ServerLevel level)||!ModList.get().isLoaded("create_high_seas")||level.getGameTime()%5!=0||level.players().isEmpty())return;
+        if(AtmosphericWind.present() || !(event.getLevel() instanceof ServerLevel level)||!ModList.get().isLoaded("create_high_seas")||level.getGameTime()%5!=0||level.players().isEmpty())return;
         var settings=WindSettings.current();var clock=WindWorlds.clock(level);var container=SubLevelContainer.getContainer(level);
         for(var player:level.players()){
             var pos=dev.ryanhcode.sable.Sable.HELPER.projectOutOfSubLevel(level,player.position());

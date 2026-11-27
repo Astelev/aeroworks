@@ -30,6 +30,15 @@
     "deepseas.DeepSeasSailWindMixin",
     "deepseas.DeepSeasWaveBuoyancyMixin",
     "waves.SolidWaveBuoyancyMixin",
-    "waves.WaveGeometryMixin"
-  ]
+    "waves.WaveGeometryMixin",
+    "atmospheric.AtmosphericCloudTurbulenceMixin",
+    "atmospheric.AtmosphericFlightTurbulenceMixin",
+    "atmospheric.AtmosphericSailTurbulenceMixin",
+    "atmospheric.AtmosphericWingSoaringMixin",
+    "atmospheric.AtmosphericCloudTurbulenceMixin",
+    "atmospheric.AtmosphericFlightTurbulenceMixin",
+    "atmospheric.AtmosphericSailTurbulenceMixin",
+    "atmospheric.AtmosphericWingSoaringMixin"
+  ],
+  "plugin": "net.aste.aeroworks.compat.CompatibilityPlugin"
 }
