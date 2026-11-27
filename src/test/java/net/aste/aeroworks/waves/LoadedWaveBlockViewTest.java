@@ -16,6 +16,8 @@ import java.util.*;
 public final class LoadedWaveBlockViewTest {
     private static void check(boolean b,String why){if(!b)throw new AssertionError(why);}
     public static void main(String[] args)throws Exception{
+        // This JavaExec regression runs outside the NeoForge game launcher.
+        net.neoforged.fml.loading.LoadingModList.of(List.of(),List.of(),List.of(),List.of(),Map.of());
         SharedConstants.tryDetectVersion();Bootstrap.bootStrap();
         var sail=new BlockPos(-268435441,64,268435454); // x=15 and z=14 in their storage chunks
         var support=sail.east(); // crosses a storage-chunk boundary
