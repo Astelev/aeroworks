@@ -36,7 +36,8 @@
     "atmospheric.AtmosphericFlightTurbulenceMixin",
     "atmospheric.AtmosphericSailTurbulenceMixin",
     "atmospheric.AtmosphericWingSoaringMixin",
-    "deepseas.DeepSeasSailHeadingMixin"
+    "deepseas.DeepSeasSailHeadingMixin",
+    "deepseas.DeepSeasRudderWaterMixin"
   ],
   "plugin": "net.aste.aeroworks.compat.CompatibilityPlugin"
 }

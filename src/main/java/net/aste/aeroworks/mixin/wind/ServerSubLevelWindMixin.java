@@ -39,6 +39,9 @@ public abstract class ServerSubLevelWindMixin {
             Pose3d localPose, double timeStep, Vector3dc linearVelocity, Vector3dc angularVelocity,
             Vector3d linearImpulse, Vector3d angularImpulse,
             BlockSubLevelLiftProvider.LiftProviderGroup group) {
+        if(net.aste.aeroworks.compat.WaterSurfaceDispatch.contribute(provider,context,subLevel,localPose,
+                timeStep,linearVelocity,angularVelocity,linearImpulse,angularImpulse,group,
+                aste_aeroworks$aerodynamics.enabled()))return;
         if (!aste_aeroworks$wind.ready()) {
             // One field query per body/substep, shared by ordinary and nested surfaces.
             var position = subLevel.logicalPose().position();

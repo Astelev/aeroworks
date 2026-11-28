@@ -430,3 +430,11 @@ def testSailHeading = tasks.register('testSailHeading', JavaExec) {
     javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
 }
 tasks.named('check') { dependsOn testSailHeading }
+
+def testWaterSurfaceDispatch = tasks.register('testWaterSurfaceDispatch', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.aste.aeroworks.WaterSurfaceDispatchTest'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn testWaterSurfaceDispatch }
