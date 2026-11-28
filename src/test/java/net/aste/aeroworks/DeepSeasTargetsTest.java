@@ -29,6 +29,18 @@ public final class DeepSeasTargetsTest {
             if(calls(overload,manager.name,"getWind")!=1)throw new AssertionError("Vector overload no longer delegates");
             var sample=entry(jar,"com/maxenonyme/highseas/wind/WindSample");method(sample,"<init>","(Lnet/minecraft/world/phys/Vec3;DDDDD)V");
             var system=entry(jar,"com/maxenonyme/highseas/sail/SailWindSystem");
+            method(system,"keel","(Ldev/ryanhcode/sable/sublevel/SubLevel;JLorg/joml/Vector3dc;)Lorg/joml/Vector3d;");
+            method(system,"afloat","(Lnet/minecraft/server/level/ServerLevel;Ldev/ryanhcode/sable/sublevel/SubLevel;)Z");
+            var registry=entry(jar,"com/maxenonyme/highseas/sail/SailWindRegistry");
+            method(registry,"getSails","(Ldev/ryanhcode/sable/sublevel/SubLevel;J)Ljava/util/List;");
+            var vane=entry(jar,"com/maxenonyme/highseas/client/WindVaneGoggle");
+            method(vane,"alignment","(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)D");
+            var shader=entry(jar,"com/maxenonyme/highseas/client/SailShaderState");
+            var mean=method(shader,"sailDir","(Lorg/joml/Quaterniondc;Ljava/util/List;)Lorg/joml/Vector3d;");
+            for(String field:new String[]{"supportSign","area","axisX","axisY","axisZ"}) {
+                boolean found=false;for(var insn:mean.instructions)if(insn instanceof FieldInsnNode f&&f.name.equals(field))found=true;
+                if(!found)throw new AssertionError("Recheck native vane's area/support-weighted direction: "+field);
+            }
             var pull=method(system,"pull","(Lnet/minecraft/server/level/ServerLevel;Ldev/ryanhcode/sable/sublevel/ServerSubLevel;Ldev/ryanhcode/sable/companion/math/Pose3dc;Lcom/maxenonyme/highseas/sail/SailGroup;DDLcom/maxenonyme/highseas/sail/SailWindSystem$Drive;)V");
             if(calls(pull,manager.name,"getWind")!=1)throw new AssertionError("Expected exactly one group wind call");
             if(calls(pull,"dev/ryanhcode/sable/companion/math/Pose3dc","transformPosition")!=1)throw new AssertionError("Sail coordinates must already be world coordinates");
@@ -36,6 +48,13 @@ public final class DeepSeasTargetsTest {
                 int count=0;for(var m:entry(jar,"com/maxenonyme/highseas/"+type).methods)count+=calls(m,manager.name,"getWind");
                 if(count==0)throw new AssertionError("Missing visual wind path "+type);
             }
+            var rudder=entry(jar,"com/maxenonyme/highseas/block/RudderBlock");
+            var water=method(rudder,"sable$contributeLiftAndDrag","(Ldev/ryanhcode/sable/api/block/BlockSubLevelLiftProvider$LiftProviderContext;Ldev/ryanhcode/sable/sublevel/ServerSubLevel;Ldev/ryanhcode/sable/companion/math/Pose3d;DLorg/joml/Vector3dc;Lorg/joml/Vector3dc;Lorg/joml/Vector3d;Lorg/joml/Vector3d;Ldev/ryanhcode/sable/api/block/BlockSubLevelLiftProvider$LiftProviderGroup;)V");
+            if(calls(water,"net/minecraft/world/level/material/FluidState","is")!=1||calls(water,tracker.name,"realFluidState")!=1)
+                throw new AssertionError("Rudder native medium decision changed");
+            boolean dense=false;for(var insn:water.instructions)if(insn instanceof LdcInsnNode ldc&&Double.valueOf(50).equals(ldc.cst))dense=true;
+            if(!dense||calls(water,"dev/ryanhcode/sable/sublevel/ServerSubLevel","getMassTracker")!=1||calls(water,"org/joml/Vector3d","cross")!=1)
+                throw new AssertionError("Rudder water coefficient or centre-of-mass torque changed");
             var sail=entry(jar,"com/maxenonyme/highseas/block/BoatSailBlock");
             for(String name:new String[]{"sable$getLiftScalar","sable$getParallelDragScalar"}){
                 var m=method(sail,name,"()F");boolean zero=false;for(var i:m.instructions)if(i.getOpcode()==org.objectweb.asm.Opcodes.FCONST_0)zero=true;

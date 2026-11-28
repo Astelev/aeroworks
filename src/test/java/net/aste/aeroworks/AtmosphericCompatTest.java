@@ -45,6 +45,7 @@ public final class AtmosphericCompatTest {
         };
         Class.forName("net.aste.aeroworks.compat.atmospheric.AtmosphericWind",true,isolated);
         Class.forName("net.aste.aeroworks.compat.deepseas.DeepSeasWind",true,isolated);
+        Class.forName("net.aste.aeroworks.compat.deepseas.DeepSeasSailHeading",true,isolated);
         String prefix="net.aste.aeroworks.mixin.";
         for(boolean aw:new boolean[]{false,true})for(boolean ds:new boolean[]{false,true}) {
             check(CompatibilityPolicy.apply(prefix+"atmospheric.AtmosphericWingSoaringMixin",aw,ds)==aw,"Atmospheric optional gate");
